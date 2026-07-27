@@ -67,3 +67,19 @@ Viewbook does not take the screenshots; the project does, and drops them in `img
 that can render its own screens will do: an off-screen Compose renderer, a headless browser, a
 simulator, a screenshot test. Keeping it that way means the pictures come from the real code and
 cannot quietly stop matching it.
+
+A project can say what makes them, and then the page can run it:
+
+    "renders": {
+      "command": ["./make-renders.sh"],
+      "dir": "../..",
+      "statement": "shown next to the button"
+    }
+
+`dir` is relative to the model directory. The command's output is on the page while it runs, and
+when it finishes every open page reloads and the screenshots it shows carry the moment they changed.
+
+The command runs in the server's environment, not in the shell it was written in, so it must reach
+for nothing outside the project's own toolchain: a gradle wrapper, a script in the repository, a
+node module the project installs. A crop with ImageMagick works on a laptop and fails under a
+service that has never heard of it.

@@ -342,8 +342,8 @@
       "tag": "REQUIREMENT",
       "uid": "REQ-RENDERS-REFRESH",
       "title": "Renders that refresh themselves",
-      "statement": "A project declares the command that produces img/, and viewbook runs it rather than waiting for someone to remember.",
-      "status": "Missing",
+      "statement": "A project says in its viewbook.json what makes its screenshots. The page runs it, shows what it prints while it prints it, and picks the new renders up the moment it finishes.",
+      "status": "Built",
       "tier": "3 on request",
       "relations": [
         {

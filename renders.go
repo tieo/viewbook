@@ -3,8 +3,10 @@ package viewbook
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -145,6 +147,12 @@ func (s *Server) startRenders(declared *Renders) bool {
 		command.Stdout = &s.making
 		command.Stderr = &s.making
 		err := command.Run()
+		// A command that is not there fails identically to one that is broken,
+		// unless the page is told what was looked for and where. This server's
+		// environment is not the shell the command was written in.
+		if errors.Is(err, exec.ErrNotFound) {
+			fmt.Fprintf(&s.making, "\n%v\nPATH was %s\n", err, os.Getenv("PATH"))
+		}
 
 		s.making.Lock()
 		s.making.running = false

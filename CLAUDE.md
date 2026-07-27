@@ -64,7 +64,9 @@ machines as well.
   exactly as they arrive — re-encoding sorted every key once, so changing one word rewrote 1035
   lines and the diff said nothing.
 - **A document is read, not panned.** The canvas is for sketching, behind its own address.
-- **Renders come from the app's own code**, never from drawings.
+- **Renders come from the app's own code**, never from drawings. A project may declare the command
+  that makes them, and that command must reach for nothing outside the project's own toolchain: it
+  runs in the server's environment, where a laptop's ImageMagick does not exist.
 - **Look at what you produce.** Render the page, read the screenshot, use the thing. A previous
   round shipped a page with no send button, no confirmation and no reply, all of which a single
   honest look would have caught.
@@ -83,11 +85,7 @@ machines as well.
    same rule as everything else here, that the project generates it and viewbook only shows it.
 3. **Adding things from the page.** Status and notes can be edited; adding a requirement, a state or
    a view cannot.
-4. **Renders that refresh themselves.** A project should declare the command that produces `img/`,
-   and viewbook should be able to run it and pick the result up. On Compose that command is a
-   screenshot test over `@Preview`: Google's `com.android.compose.screenshot` plugin, or Roborazzi
-   with a preview scanner, both of which render previews to PNG without a device.
-5. **A release.** Tagged versions, so an install pins something other than a commit.
+4. **A release.** Tagged versions, so an install pins something other than a commit.
 
 ## Working agreements
 

@@ -130,14 +130,15 @@ function App() {
   // landscape has width to spare and height to save, and a phone has neither to
   // give to a permanent list.
   //
-  // The book's name is the way back to the index, so nothing else has to be.
+  // Viewbook is the tool and leads out to every book it serves; the name beside
+  // it is which book this is, and leads to that book's index.
   return (
     <div className="shell">
       <header className="bar">
-        <a className={`brand ${route === "" ? "on" : ""}`} href="#/">
-          {config.title}
-          {config.subtitle && <span>{config.subtitle}</span>}
-        </a>
+        <span className="brand">
+          <a className="tool" href="/">Viewbook</a>
+          <a className={`book ${route === "" ? "on" : ""}`} href="#/">{config.title}</a>
+        </span>
         <nav className="tabs">
           {views.map((view) => (
             <a

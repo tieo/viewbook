@@ -1,0 +1,4 @@
+# The built interface is embedded into the binary with go:embed, so it has to be
+# in the repository: `go install github.com/tieo/viewbook/cmd/viewbook@latest`
+# compiles from what is committed, with no npm step at the far end.
+build-output: allow

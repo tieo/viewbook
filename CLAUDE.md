@@ -38,11 +38,22 @@ Nobody ships screen ↔ requirements ↔ live render ↔ conversation as one thi
   because what reaches a conversation must read as a request.
 - `web/` — React. Index of cards, a page per view, config-declared tables, a sketch canvas.
   Built output is committed on purpose: `go:embed` needs it so `go install` works with no npm step.
+- `guard.go` — the key on the door and the same-origin rule, in front of every request.
 - `cmd/viewbook` — the standalone binary. `--say` runs a command with the message on stdin.
+- `flake.nix` — `nix run github:tieo/viewbook`, `nix profile install`, `go install`.
 
-**[proj](https://github.com/tieo/proj) embeds this package**: `proj viewbook` serves every project
-it knows about, `Say` types into that project's terminal session and `Session` reads the reply back
+**[proj](https://github.com/tieo/proj) depends on this module**: `proj book` serves every project it
+knows about, `Say` types into that project's terminal session and `Session` reads the reply back
 out, so the page shows the answer. That is the only integration, and it lives on proj's side.
+
+## Safety
+
+A page here types into a session that can run commands, so reaching this server is reaching the
+machine. Every request has to be same-origin, which is what stops a page on another site from making
+a browser type for you, and has to carry a key kept in a file only its owner can read. Following a
+link in is a navigation and is let through to the key check; a request another site makes on the
+browser's behalf is not. Published, it belongs behind whatever authenticates the rest of your
+machines as well.
 
 ## Rules
 
@@ -73,8 +84,10 @@ out, so the page shows the answer. That is the only integration, and it lives on
 3. **Adding things from the page.** Status and notes can be edited; adding a requirement, a state or
    a view cannot.
 4. **Renders that refresh themselves.** A project should declare the command that produces `img/`,
-   and viewbook should be able to run it and pick the result up.
-5. **Packaging.** A Nix flake and a release, so `viewbook` installs without a Go toolchain.
+   and viewbook should be able to run it and pick the result up. On Compose that command is a
+   screenshot test over `@Preview`: Google's `com.android.compose.screenshot` plugin, or Roborazzi
+   with a preview scanner, both of which render previews to PNG without a device.
+5. **A release.** Tagged versions, so an install pins something other than a commit.
 
 ## Working agreements
 

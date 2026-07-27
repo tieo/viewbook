@@ -351,6 +351,58 @@
           "role": "Lives in"
         }
       ]
+    },
+    {
+      "tag": "REQ",
+      "uid": "REQ-VIEW-SHAPES",
+      "title": "A render of whatever shape the screen is",
+      "statement": "A view can carry an upright render and a wide one. Which is which is measured from the image, so an upright screen stands beside the conversation and a wide one takes the width.",
+      "status": "Built",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQ",
+      "uid": "REQ-VIEW-FOCUS",
+      "title": "The render, the question and the answer come first",
+      "statement": "Those three fill the screen. What the view has to do, the states it can be in and the notes sit behind a fold that opens itself only when the window has room for them.",
+      "status": "Built",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQ",
+      "uid": "REQ-SAFE",
+      "title": "Only whoever holds the key can open it",
+      "statement": "What is typed here reaches a session that can run commands. Every request has to be same-origin and has to carry a key kept in a file readable by its owner alone.",
+      "status": "Built",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQ",
+      "uid": "REQ-INSTALL",
+      "title": "Installs without cloning anything",
+      "statement": "nix run, nix profile install or go install. The interface is committed built and embedded in the binary, so there is no node step.",
+      "status": "Built",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "Lives in"
+        }
+      ]
     }
   ]
 }

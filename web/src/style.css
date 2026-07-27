@@ -44,6 +44,19 @@
 
 * { box-sizing: border-box; }
 
+/* Scrollbars are a last resort, and when one is needed it is a thin line rather
+   than a grey trough with arrows on it. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.35) transparent;
+}
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.3); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.5); }
+::-webkit-scrollbar-corner { background: transparent; }
+
 html, body, #root { height: 100%; margin: 0; }
 
 body {
@@ -342,7 +355,21 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
   .page { padding-top: 14px; }
 }
 
-.shapes { display: flex; gap: 6px; margin-top: 8px; }
+.shapes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+/* A state nobody has rendered is still a state the screen can be in: it is
+   listed, and it is listed as missing. */
+.shapes button.gap {
+  border-style: dashed;
+  color: var(--missing);
+  border-color: var(--missing);
+}
+
+.shapes button.gap.on { background: var(--missing); border-color: var(--missing); color: #fff; }
+
+.shapes button.shape { font-size: 11px; opacity: 0.85; }
+
+.gapcount { color: var(--missing); }
 
 .shapes button {
   font: inherit;
@@ -365,7 +392,7 @@ h3 {
   margin: 0 0 10px;
 }
 
-.detail { display: flex; flex-direction: column; gap: 28px; }
+
 
 .reqs, .states { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
@@ -514,10 +541,7 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 /* ── Asking, and what came back ──────────────────────── */
 
-/* The box is small until it is being written in: the page is here to be read,
-   and an empty composer that fills the first screen keeps it from being. */
-textarea.ask { min-height: 62px; transition: min-height 0.12s; }
-textarea.ask:focus { min-height: 130px; }
+textarea.ask { min-height: 0; }
 
 .ask-bar {
   display: flex;
@@ -563,8 +587,10 @@ textarea.ask:focus { min-height: 130px; }
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 190px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* A phone on its side has a third of the height and all of the width: the
@@ -662,14 +688,23 @@ textarea.ask:focus { min-height: 130px; }
 
 .dock-row { display: flex; gap: 10px; align-items: flex-end; }
 
-.talk textarea.ask { flex: 1; min-height: 74px; }
-.talk textarea.ask:focus { min-height: 74px; }
+/* As tall as what is in it, never taller than a third of the screen, and never
+   with a scrollbar around three lines of its own placeholder. */
+.talk textarea.ask {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  resize: none;
+  overflow-y: auto;
+  font-size: 15px;
+  padding: 10px 12px;
+}
 
 .ask-bar { margin-top: 0; min-height: 16px; }
 
 /* ── What else is known about the view, when there is room ── */
 
-.more { margin-top: 26px; }
+
 
 .more > summary {
   cursor: pointer;
@@ -701,5 +736,4 @@ textarea.ask:focus { min-height: 130px; }
 
 @media (orientation: landscape) and (max-height: 560px) {
   .work { height: calc(100dvh - 150px); }
-  .talk textarea.ask, .talk textarea.ask:focus { min-height: 48px; }
 }

@@ -35,5 +35,9 @@
       "./render.sh"
     ],
     "statement": "Serves this model on a spare port and photographs it with a headless browser."
-  }
+  },
+  "states": [
+    "Empty",
+    "Failed"
+  ]
 }

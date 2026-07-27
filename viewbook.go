@@ -9,6 +9,7 @@
 package viewbook
 
 import (
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -44,6 +45,8 @@ type Server struct {
 
 	watchers sync.Map // chan struct{} per subscriber
 	prefix   string
+	web      fs.FS
+	webDir   string // set when the pages come from a directory rather than the binary
 	making   run // the command that makes this project's renders, while it runs
 }
 
@@ -55,6 +58,11 @@ type Config struct {
 	Subtitle string   `json:"subtitle"`
 	Tables   []Table  `json:"tables"`
 	Renders  *Renders `json:"renders,omitempty"`
+	// States every view is expected to have a render of. A screen is not one
+	// picture: it is full and empty, loading and failed, permitted and refused.
+	// Naming them here makes the ones nobody has drawn visible as gaps instead
+	// of leaving a book that shows only the happy one.
+	States []string `json:"states,omitempty"`
 }
 
 // Table is a list a project already has as JSON, shown as a table. The tool
@@ -99,7 +107,8 @@ func (s *Server) Handler(prefix string) http.Handler {
 	mux.HandleFunc(prefix+"pasted/", s.pasted)
 	s.prefix = prefix
 
-	built := interfaceFrom(os.Getenv("VIEWBOOK_WEB"))
+	built, from := interfaceFrom(os.Getenv("VIEWBOOK_WEB"))
+	s.web, s.webDir = built, from
 	files := http.StripPrefix(strings.TrimSuffix(prefix, "/"), http.FileServer(http.FS(built)))
 	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 		// A book mounted at /name must be reached as /name/, or every relative
@@ -126,10 +135,10 @@ func (s *Server) Handler(prefix string) http.Handler {
 // Working on the interface otherwise means rebuilding and redeploying the
 // server to see a changed line of CSS, which is minutes of waiting for
 // something the browser could have shown on a refresh.
-func interfaceFrom(directory string) fs.FS {
+func interfaceFrom(directory string) (fs.FS, string) {
 	if directory != "" {
 		if _, err := os.Stat(filepath.Join(directory, "index.html")); err == nil {
-			return os.DirFS(directory)
+			return os.DirFS(directory), directory
 		}
 		fmt.Fprintf(os.Stderr, "viewbook: no index.html in %s, serving the built-in interface\n", directory)
 	}
@@ -137,7 +146,7 @@ func interfaceFrom(directory string) fs.FS {
 	if err != nil {
 		panic(fmt.Sprintf("viewbook: built interface missing: %v", err))
 	}
-	return built
+	return built, ""
 }
 
 func (s *Server) path(parts ...string) string {
@@ -178,7 +187,22 @@ func (s *Server) config() Config {
 }
 
 func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.config())
+	declared := s.config()
+	writeJSON(w, http.StatusOK, struct {
+		Config
+		// Which interface this is. A page that finds a different one has been
+		// left behind by a rebuild and reloads itself, rather than waiting to be
+		// told by someone wondering why nothing changed.
+		Interface string `json:"interface"`
+	}{declared, s.interfaceVersion()})
+}
+
+func (s *Server) interfaceVersion() string {
+	page, err := fs.ReadFile(s.web, "index.html")
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(page))[:12]
 }
 
 func (s *Server) model(w http.ResponseWriter, r *http.Request) {
@@ -448,8 +472,14 @@ func (s *Server) Watch(stop <-chan struct{}) {
 
 func (s *Server) stamps() map[string]time.Time {
 	stamps := map[string]time.Time{}
-	for _, where := range []string{"model.json", "img", "wireframes"} {
-		_ = filepath.WalkDir(s.path(where), func(path string, entry fs.DirEntry, err error) error {
+	watched := []string{s.path("model.json"), s.path("img"), s.path("wireframes")}
+	// A rebuilt interface is a change the open pages need to hear about too,
+	// otherwise they keep running the one they were loaded with.
+	if s.webDir != "" {
+		watched = append(watched, filepath.Join(s.webDir, "index.html"))
+	}
+	for _, where := range watched {
+		_ = filepath.WalkDir(where, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil || entry.IsDir() {
 				return nil
 			}

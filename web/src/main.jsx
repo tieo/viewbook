@@ -87,6 +87,9 @@ function App() {
   const timer = useRef(null);
   const renders = useRenders();
   const theme = useTheme();
+  // Which interface this page is running. When the server starts serving a
+  // different one, this page is the old one and says so by reloading.
+  const running = useRef(null);
 
   const reload = useCallback(() => {
     api("api/model").then(setModel);
@@ -94,6 +97,13 @@ function App() {
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+
+  useEffect(() => {
+    const version = config?.interface;
+    if (!version) return;
+    if (running.current === null) running.current = version;
+    else if (running.current !== version) location.reload();
+  }, [config?.interface]);
 
   // The files are the document and the agent writes to them too, so the page
   // follows them rather than showing whatever it read when it opened.
@@ -141,7 +151,14 @@ function App() {
   if (section === "view") {
     const view = views.find((v) => slug(v.uid) === argument);
     page = view
-      ? <ViewPage model={model} view={view} onChange={save} stamp={stamp} theme={theme.showing} />
+      ? <ViewPage
+          model={model}
+          view={view}
+          onChange={save}
+          stamp={stamp}
+          theme={theme.showing}
+          required={config.states}
+        />
       : <NoSuchView />;
   } else if (section === "sketch") {
     page = <Sketch name={argument} title={views.find((v) => slug(v.uid) === argument)?.title} />;
@@ -149,7 +166,16 @@ function App() {
     const table = config.tables.find((t) => t.name === argument);
     page = table ? <TablePage table={table} /> : <NoSuchView what="table" />;
   } else {
-    page = <IndexPage views={views} model={model} stamp={stamp} renders={renders} theme={theme.showing} />;
+    page = (
+      <IndexPage
+        views={views}
+        model={model}
+        stamp={stamp}
+        renders={renders}
+        theme={theme.showing}
+        required={config.states}
+      />
+    );
   }
 
   // One bar across the top rather than a column down the side: a screen in
@@ -229,32 +255,97 @@ function requirementsOf(model, uid) {
  * carry both. Which one an image is, is measured when it loads rather than
  * declared in the model, so a project only has to drop the file in img/.
  */
-function Render({ view, onShape, stamp, theme }) {
-  const shots = rendersOf(view);
-  const [chosen, setChosen] = useState(() => preferred(shots, theme));
+/**
+ * Every state a view can be in, and what each looks like.
+ *
+ * A screen is not one picture. It is full and it is empty, it is loading and it
+ * has failed, it is a phone held upright and a window three times as wide. A
+ * book that shows only the happy one is a book that lies by omission, so the
+ * states a project has not rendered are shown as gaps rather than left out.
+ */
+function statesOf(model, view, required) {
+  const own = model.states.filter((state) =>
+    state.relations?.some((r) => r.to === view.uid && r.role === "State of"));
 
-  useEffect(() => setChosen(preferred(rendersOf(view), theme)), [view.uid, theme]);
+  const asItIs = { uid: `${view.uid}-AS-IT-IS`, title: "As it is", shots: rendersOf(view) };
+  const shown = own.map((state) => ({
+    uid: state.uid,
+    title: state.title,
+    statement: state.statement,
+    shots: rendersOf(state),
+  }));
 
-  if (shots.length === 0) {
-    return <div className="noshot tall"><span>Nothing renders this yet.</span></div>;
-  }
+  // A state the project promised in its config but has not modelled at all is
+  // still a state this view can be in, and the gap is the point.
+  const named = new Set(shown.map((state) => state.title.toLowerCase()));
+  const missing = (required ?? [])
+    .filter((title) => !named.has(String(title).toLowerCase()))
+    .map((title) => ({ uid: `${view.uid}-${title}`, title, shots: [], promised: true }));
+
+  return [asItIs, ...shown, ...missing].filter(
+    (state, index) => index === 0 || state.shots.length > 0 || state.promised);
+}
+
+function Render({ model, view, onShowing, stamp, theme, required }) {
+  const states = statesOf(model, view, required);
+  const [state, setState] = useState(0);
+  const [chosen, setChosen] = useState(0);
+
+  const here = states[Math.min(state, states.length - 1)];
+  const shots = here.shots;
+
+  useEffect(() => { setState(0); }, [view.uid]);
+  useEffect(() => { setChosen(preferred(shots, theme)); }, [view.uid, state, theme]);
+
+  const tell = (which) => onShowing({
+    state: here.title,
+    named: which ? (which.label ?? which.file.replace(/\.[a-z]+$/, "")) : "",
+  });
+
   const shot = shots[Math.min(chosen, shots.length - 1)];
   return (
     <>
-      <div className="frame">
-        <img
-          src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
-          alt={`${view.title} as rendered`}
-          onLoad={(e) => onShape(e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait")}
-        />
+      {shot ? (
+        <div className="frame">
+          <img
+            src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
+            alt={`${view.title}, ${here.title}`}
+            onLoad={(e) => onShowing({
+              shape: e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait",
+              state: here.title,
+              named: shot.label ?? shot.file.replace(/\.[a-z]+$/, ""),
+            })}
+          />
+        </div>
+      ) : (
+        <div className="noshot tall">
+          <span>
+            Nothing renders {here === states[0] ? "this view" : `this view ${here.title.toLowerCase()}`} yet.
+            {here.statement && <><br />{here.statement}</>}
+          </span>
+        </div>
+      )}
+
+      <div className="shapes">
+        {states.map((one, index) => (
+          <button
+            key={one.uid}
+            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
+            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+            onClick={() => { setState(index); tell(one.shots[preferred(one.shots, theme)]); }}
+          >
+            {one.title}
+          </button>
+        ))}
       </div>
+
       {shots.length > 1 && (
         <div className="shapes">
           {shots.map((one, index) => (
             <button
               key={one.file}
-              className={index === chosen ? "on" : ""}
-              onClick={() => setChosen(index)}
+              className={`shape ${index === chosen ? "on" : ""}`}
+              onClick={() => { setChosen(index); tell(one); }}
             >
               {one.label ?? one.file.replace(/\.[a-z]+$/, "")}
             </button>
@@ -306,8 +397,10 @@ function Thumb({ view, stamp, theme }) {
   );
 }
 
-function IndexPage({ views, model, stamp, renders, theme }) {
+function IndexPage({ views, model, stamp, renders, theme, required }) {
   const open = model.requirements.filter((r) => r.status !== "Built");
+  const gaps = views.reduce(
+    (count, view) => count + statesOf(model, view, required).filter((s) => s.shots.length === 0).length, 0);
   return (
     <div className="page">
       <header className="page-head">
@@ -316,6 +409,7 @@ function IndexPage({ views, model, stamp, renders, theme }) {
           <p>
             {views.length} views · {model.requirements.length} requirements ·{" "}
             {open.length === 0 ? "all built" : `${open.length} not built`}
+            {gaps > 0 && <> · <span className="gapcount">{gaps} states with no render</span></>}
           </p>
         </div>
       </header>
@@ -331,6 +425,11 @@ function IndexPage({ views, model, stamp, renders, theme }) {
                 <h2>{view.title}</h2>
                 <p>{view.statement.split(".")[0]}.</p>
                 <div className="counts">
+                  {statesOf(model, view, required).filter((s) => s.shots.length === 0).length > 0 && (
+                    <span className="pill missing">
+                      {statesOf(model, view, required).filter((s) => s.shots.length === 0).length} not rendered
+                    </span>
+                  )}
                   {own.built > 0 && <span className="pill built">{own.built} built</span>}
                   {own.broken > 0 && <span className="pill broken">{own.broken} broken</span>}
                   {own.missing > 0 && <span className="pill missing">{own.missing} missing</span>}
@@ -348,10 +447,6 @@ function IndexPage({ views, model, stamp, renders, theme }) {
 
 /**
  * Making the renders again, from here.
- *
- * The command belongs to the project, which is the only thing that knows how its
- * own screens are drawn: a screenshot test over Compose previews, a headless
- * browser, a simulator. This runs it and shows what it says while it says it.
  */
 function RenderRun({ renders }) {
   const tail = useRef(null);
@@ -422,41 +517,29 @@ function SketchBox() {
   );
 }
 
-/** Whether this screen has room for anything beyond the render and the conversation. */
-const roomToSpare = () => window.matchMedia("(min-width: 1000px) and (min-height: 800px)").matches;
-
-function ViewPage({ model, view, onChange, stamp, theme }) {
-  const uid = view.uid;
-  const [shape, setShape] = useState("portrait");
-  const [more, setMore] = useState(roomToSpare);
-  const states = model.states.filter((s) =>
-    s.relations.some((r) => r.to === uid && r.role === "State of"));
-  const requirements = requirementsOf(model, uid).all;
-  const stories = useMemo(
-    () => Object.fromEntries(model.stories.map((s) => [s.uid, s])), [model.stories]);
+function ViewPage({ model, view, onChange, stamp, theme, required }) {
+  const [showing, setShowing] = useState({ shape: "portrait", named: "", state: "" });
   const reachedFrom = view.relations
     .filter((r) => r.role === "Reached from")
     .map((r) => model.views.find((v) => v.uid === r.to))
     .filter(Boolean);
 
-  const editView = (patch, announce) => onChange({
-    ...model,
-    views: model.views.map((v) => (v.uid === uid ? { ...v, ...patch } : v)),
-  }, announce);
-
-  const setStatus = (reqUid, status) => onChange({
-    ...model,
-    requirements: model.requirements.map((r) => (r.uid === reqUid ? { ...r, status } : r)),
-  });
-
+  // The whole page is the view as it renders and the conversation about it. The
+  // navigation already says which view this is, and what it has to do is
+  // counted on the index; repeating either here only pushed the two things
+  // someone came for off the screen.
   return (
     <div className="page">
-      <header className="page-head">
-        <div>
-          <h1>
-            {view.title}
-            {view.status === "Missing" && <span className="pill missing">not built</span>}
-          </h1>
+      <div className={`work ${showing.shape}`}>
+        <section className="render">
+          <Render
+            model={model}
+            view={view}
+            required={required}
+            onShowing={(next) => setShowing((was) => ({ ...was, ...next }))}
+            stamp={stamp}
+            theme={theme}
+          />
           {reachedFrom.length > 0 && (
             <p className="from">
               Reached from{" "}
@@ -468,84 +551,15 @@ function ViewPage({ model, view, onChange, stamp, theme }) {
               ))}
             </p>
           )}
-        </div>
-      </header>
-
-      {/* Three things fill the screen: how the view renders, what is being
-          asked about it, and what came back. An upright render stands beside
-          the conversation; a wide one takes the width and the conversation goes
-          under it. Everything else is behind the fold, and on a screen with no
-          room for it, out of the way entirely. */}
-      <div className={`work ${shape}`}>
-        <section className="render">
-          <Render view={view} onShape={setShape} stamp={stamp} theme={theme} />
         </section>
-        <Ask about={view.title} />
+        {/* What is being looked at goes with the question: which render, and
+            whether the page is light or dark, are half of what "this looks
+            wrong" means. */}
+        <Ask
+          about={view.title}
+          looking={[showing.state, showing.named, theme].filter(Boolean).join(", ")}
+        />
       </div>
-
-      <details className="more" open={more} onToggle={(e) => setMore(e.target.open)}>
-        <summary>What it has to do{states.length > 0 && ", the states it can be in"}, and notes</summary>
-        <p className="statement">{view.statement}</p>
-        <div className="detail">
-          <section>
-            <h3>What it has to do</h3>
-            <ul className="reqs">
-              {requirements.map((req) => {
-                const served = req.relations
-                  .filter((r) => r.role === "Fulfils")
-                  .map((r) => stories[r.to]?.title)
-                  .filter(Boolean);
-                return (
-                  <li key={req.uid}>
-                    <div className="req-head">
-                      <span className={statusClass(req.status)}>{req.status}</span>
-                      <strong>{req.title}</strong>
-                    </div>
-                    <p>{req.statement}</p>
-                    {served.length > 0 && <p className="serves">Serves: {served.join(" · ")}</p>}
-                    <div className="setstatus">
-                      {["Built", "Broken", "Missing"].map((s) => (
-                        <button
-                          key={s}
-                          className={req.status === s ? "on" : ""}
-                          onClick={() => setStatus(req.uid, s)}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </li>
-                );
-              })}
-              {requirements.length === 0 && <li className="empty">Nothing recorded yet.</li>}
-            </ul>
-          </section>
-
-          {states.length > 0 && (
-            <section>
-              <h3>States it can be in</h3>
-              <ul className="states">
-                {states.map((state) => (
-                  <li key={state.uid}>
-                    <strong>{state.title}</strong>
-                    <p>{state.statement}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <section>
-            <h3>Notes</h3>
-            <textarea
-              value={view.notes ?? ""}
-              placeholder="Kept with the view. Saved as you type; sent to the session when you click away."
-              onChange={(e) => editView({ notes: e.target.value }, false)}
-              onBlur={() => editView({ notes: view.notes ?? "" }, true)}
-            />
-          </section>
-        </div>
-      </details>
     </div>
   );
 }
@@ -562,12 +576,27 @@ function ViewPage({ model, view, onChange, stamp, theme }) {
  * other half of the loop - what is typed goes to the conversation, and what the
  * conversation says comes back underneath.
  */
-function Ask({ about }) {
+function Ask({ about, looking }) {
   const [text, setText] = useState("");
   const [shots, setShots] = useState([]);
   const [state, setState] = useState("");
   const [reply, setReply] = useState("");
   const talk = useRef(null);
+  const box = useRef(null);
+
+  // The composer is as tall as what has been typed, up to a third of the
+  // screen: a fixed box scrolls its own three lines while the page beneath it
+  // stays empty, which is the worst of both.
+  const grow = () => {
+    const field = box.current;
+    if (!field) return;
+    const cap = window.innerHeight * 0.34;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(field.scrollHeight, cap)}px`;
+    // A scrollbar around text that fits is furniture; it appears only at the cap.
+    field.style.overflowY = field.scrollHeight > cap ? "auto" : "hidden";
+  };
+  useEffect(grow, [text]);
   // The conversation is there whether or not this page asked the last question,
   // so it is shown on arrival rather than only after sending something.
 
@@ -579,7 +608,10 @@ function Ask({ about }) {
     // A pasted image is already a file in the project; the conversation is given
     // its path, which is something it can actually open.
     const attached = shots.map((s) => `\n${s.path}`).join("");
-    const said = (about ? `About ${about}: ${message}` : message) + attached;
+    // Which render is on screen, and whether it is light or dark, travels with
+    // the message: otherwise the answer is about a picture nobody is looking at.
+    const at = about ? `About ${about}${looking ? ` (${looking})` : ""}: ` : "";
+    const said = at + message + attached;
     api("api/say", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -640,9 +672,11 @@ function Ask({ about }) {
       <div className="dock-row">
       <textarea
         className="ask"
+        ref={box}
+        rows={1}
         value={text}
-        placeholder={`Tell the session what to change about ${about ?? "this"}. Paste a screenshot if it helps. Enter sends, Shift+Enter is a newline.`}
-        onChange={(e) => setText(e.target.value)}
+        placeholder={`Ask about ${about ?? "this"}`}
+        onChange={(e) => { setText(e.target.value); grow(); }}
         onPaste={paste}
         // Enter sends, because this is a message rather than a document.
         // Shift+Enter is the newline.

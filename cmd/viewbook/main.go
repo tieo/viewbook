@@ -21,6 +21,7 @@ import (
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
 	say := flag.String("say", "", "command run with a message on stdin when something is changed or asked (e.g. \"proj say myproject\")")
+	gaps := flag.Bool("gaps", false, "list the states nothing renders and exit non-zero when there are any")
 	keyFile := flag.String("key-file", defaultKeyPath(),
 		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
 	flag.Usage = func() {
@@ -40,6 +41,31 @@ name, with a list of them at the root.
 	if flag.NArg() == 0 {
 		flag.Usage()
 		os.Exit(2)
+	}
+
+	// Held to its own list: a project's build can run this and fail on a screen
+	// whose empty or failed state nobody has ever drawn.
+	if *gaps {
+		found := 0
+		for _, dir := range flag.Args() {
+			root, err := filepath.Abs(dir)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			server := &viewbook.Server{Root: root}
+			missing := server.Gaps()
+			found += len(missing)
+			if said := viewbook.Said(missing); said != "" {
+				fmt.Print(said)
+			}
+		}
+		if found > 0 {
+			fmt.Fprintf(os.Stderr, "%d states nothing renders\n", found)
+			os.Exit(1)
+		}
+		fmt.Println("every state has a render")
+		return
 	}
 
 	var books []viewbook.Book

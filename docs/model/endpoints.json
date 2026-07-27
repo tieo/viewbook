@@ -9,6 +9,7 @@
     { "path": "api/say", "method": "POST", "answers": "hands a message to whoever is working on the project", "writes": true },
     { "path": "api/paste", "method": "POST", "answers": "keeps a pasted image outside the repository and answers with its path", "writes": true },
     { "path": "api/session", "method": "GET", "answers": "what the conversation looks like right now", "writes": false },
+    { "path": "api/renders", "method": "GET, POST, DELETE", "answers": "runs the command the project says makes its renders, and says what it is printing", "writes": true },
     { "path": "img/{file}", "method": "GET", "answers": "a render, falling back from img/small and img/card to img itself", "writes": false },
     { "path": "pasted/{file}", "method": "GET", "answers": "an image this page pasted", "writes": false }
   ]

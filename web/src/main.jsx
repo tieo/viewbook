@@ -28,12 +28,40 @@ function useRoute() {
 const slug = (uid) => uid.replace(/^VIEW-/, "").toLowerCase();
 const statusClass = (status) => `pill ${status.toLowerCase()}`;
 
+/**
+ * The command that makes this project's renders, and what it is saying.
+ *
+ * A build that prints nothing for four minutes is indistinguishable from one
+ * that has hung, so while it runs the page reads its output every second.
+ */
+function useRenders() {
+  const [state, setState] = useState(null);
+  const read = useCallback(
+    () => api("api/renders").then(setState).catch(() => {}), []);
+
+  useEffect(() => { read(); }, [read]);
+  useEffect(() => {
+    if (!state?.running) return undefined;
+    const every = setInterval(read, 1000);
+    return () => clearInterval(every);
+  }, [state?.running, read]);
+
+  const start = () => api("api/renders", { method: "POST" }).then(setState)
+    .catch((error) => setState({ ...state, failed: error.message }));
+  const stop = () => api("api/renders", { method: "DELETE" }).then(setState).catch(() => {});
+  return { ...state, start, stop };
+}
+
 function App() {
   const route = useRoute();
   const [model, setModel] = useState(null);
   const [config, setConfig] = useState(null);
   const [saved, setSaved] = useState("");
+  // Renders are files, and a browser holds on to a file it has already seen.
+  // This changes with them, so what is on screen is what is on disk.
+  const [stamp, setStamp] = useState(0);
   const timer = useRef(null);
+  const renders = useRenders();
 
   const reload = useCallback(() => {
     api("api/model").then(setModel);
@@ -52,6 +80,7 @@ function App() {
     const stream = new EventSource(base + "api/events");
     stream.addEventListener("changed", () => {
       reload();
+      setStamp(Date.now());
       setSaved("updated");
     });
     return () => stream.close();
@@ -85,14 +114,16 @@ function App() {
   let page;
   if (section === "view") {
     const view = views.find((v) => slug(v.uid) === argument);
-    page = view ? <ViewPage model={model} view={view} onChange={save} /> : <NoSuchView />;
+    page = view
+      ? <ViewPage model={model} view={view} onChange={save} stamp={stamp} />
+      : <NoSuchView />;
   } else if (section === "sketch") {
     page = <Sketch name={argument} title={views.find((v) => slug(v.uid) === argument)?.title} />;
   } else if (section === "table") {
     const table = config.tables.find((t) => t.name === argument);
     page = table ? <TablePage table={table} /> : <NoSuchView what="table" />;
   } else {
-    page = <IndexPage views={views} model={model} />;
+    page = <IndexPage views={views} model={model} stamp={stamp} renders={renders} />;
   }
 
   // One bar across the top rather than a column down the side: a screen in
@@ -128,6 +159,9 @@ function App() {
             </a>
           ))}
         </nav>
+        {renders.running && (
+          <a className="running" href="#/" title="the renders are being made">making renders</a>
+        )}
         <span className="state">{saved}</span>
       </header>
       <main>{page}</main>
@@ -157,7 +191,7 @@ function requirementsOf(model, uid) {
  * carry both. Which one an image is, is measured when it loads rather than
  * declared in the model, so a project only has to drop the file in img/.
  */
-function Render({ view, onShape }) {
+function Render({ view, onShape, stamp }) {
   const shots = rendersOf(view);
   const [chosen, setChosen] = useState(0);
 
@@ -171,7 +205,7 @@ function Render({ view, onShape }) {
     <>
       <div className="frame">
         <img
-          src={`${base}img/small/${shot.file}`}
+          src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
           alt={`${view.title} as rendered`}
           onLoad={(e) => onShape(e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait")}
         />
@@ -202,14 +236,14 @@ function rendersOf(view) {
 }
 
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
-function Thumb({ view }) {
+function Thumb({ view, stamp }) {
   const [shape, setShape] = useState("portrait");
   const shots = rendersOf(view);
   if (shots.length === 0) return <div className="noshot">nothing renders this yet</div>;
   return (
     <img
       className={shape}
-      src={`${base}img/card/${shots[0].file}`}
+      src={`${base}img/card/${shots[0].file}${stamp ? `?v=${stamp}` : ""}`}
       alt={view.title}
       loading="lazy"
       onLoad={(e) => setShape(e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait")}
@@ -217,7 +251,7 @@ function Thumb({ view }) {
   );
 }
 
-function IndexPage({ views, model }) {
+function IndexPage({ views, model, stamp, renders }) {
   const open = model.requirements.filter((r) => r.status !== "Built");
   return (
     <div className="page">
@@ -236,7 +270,7 @@ function IndexPage({ views, model }) {
           return (
             <a className="card" key={view.uid} href={`#/view/${slug(view.uid)}`}>
               <div className="shot">
-                <Thumb view={view} />
+                <Thumb view={view} stamp={stamp} />
               </div>
               <div className="card-body">
                 <h2>{view.title}</h2>
@@ -251,8 +285,48 @@ function IndexPage({ views, model }) {
           );
         })}
       </div>
+      <RenderRun renders={renders} />
       <SketchBox />
     </div>
+  );
+}
+
+/**
+ * Making the renders again, from here.
+ *
+ * The command belongs to the project, which is the only thing that knows how its
+ * own screens are drawn: a screenshot test over Compose previews, a headless
+ * browser, a simulator. This runs it and shows what it says while it says it.
+ */
+function RenderRun({ renders }) {
+  const tail = useRef(null);
+  useEffect(() => {
+    if (tail.current) tail.current.scrollTop = tail.current.scrollHeight;
+  }, [renders.output]);
+
+  if (!renders.declared) return null;
+  return (
+    <section className="renders">
+      <h3>The renders</h3>
+      <div className="sketch-row">
+        {renders.running ? (
+          <>
+            <button className="quiet" onClick={renders.stop}>Stop</button>
+            <span className="hint">{renders.command}</span>
+          </>
+        ) : (
+          <>
+            <button className="send" onClick={renders.start}>Make them again</button>
+            <span className="hint">
+              {renders.statement || renders.command}
+              {renders.took && ` · last run took ${renders.took}`}
+              {renders.failed && ` · failed: ${renders.failed}`}
+            </span>
+          </>
+        )}
+      </div>
+      {renders.output && <pre className="reply" ref={tail}>{renders.output}</pre>}
+    </section>
   );
 }
 
@@ -296,7 +370,7 @@ function SketchBox() {
 /** Whether this screen has room for anything beyond the render and the conversation. */
 const roomToSpare = () => window.matchMedia("(min-width: 1000px) and (min-height: 800px)").matches;
 
-function ViewPage({ model, view, onChange }) {
+function ViewPage({ model, view, onChange, stamp }) {
   const uid = view.uid;
   const [shape, setShape] = useState("portrait");
   const [more, setMore] = useState(roomToSpare);
@@ -349,7 +423,7 @@ function ViewPage({ model, view, onChange }) {
           room for it, out of the way entirely. */}
       <div className={`work ${shape}`}>
         <section className="render">
-          <Render view={view} onShape={setShape} />
+          <Render view={view} onShape={setShape} stamp={stamp} />
         </section>
         <Ask about={view.title} />
       </div>

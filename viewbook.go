@@ -44,15 +44,17 @@ type Server struct {
 
 	watchers sync.Map // chan struct{} per subscriber
 	prefix   string
+	making   run // the command that makes this project's renders, while it runs
 }
 
 // Config is what a project says about its own book: what it is called, and
 // which tables it carries. Everything app-specific lives here rather than in
 // this package.
 type Config struct {
-	Title    string  `json:"title"`
-	Subtitle string  `json:"subtitle"`
-	Tables   []Table `json:"tables"`
+	Title    string   `json:"title"`
+	Subtitle string   `json:"subtitle"`
+	Tables   []Table  `json:"tables"`
+	Renders  *Renders `json:"renders,omitempty"`
 }
 
 // Table is a list a project already has as JSON, shown as a table. The tool
@@ -92,6 +94,7 @@ func (s *Server) Handler(prefix string) http.Handler {
 	mux.HandleFunc(prefix+"api/say", s.say)
 	mux.HandleFunc(prefix+"api/paste", s.paste)
 	mux.HandleFunc(prefix+"api/session", s.session)
+	mux.HandleFunc(prefix+"api/renders", s.renders)
 	mux.HandleFunc(prefix+"img/", s.image)
 	mux.HandleFunc(prefix+"pasted/", s.pasted)
 	s.prefix = prefix

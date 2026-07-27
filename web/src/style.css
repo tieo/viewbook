@@ -420,6 +420,33 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .table td strong { color: var(--ink); font-weight: 600; }
 
 
+/* ── Making the renders ──────────────────────────────── */
+
+.renders { margin-top: 34px; }
+
+.renders .reply { margin-top: 10px; max-height: 300px; }
+
+.renders .hint { margin: 0; }
+
+.running {
+  flex: none;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* A run says it is alive by breathing, so a build that prints nothing for a
+   minute still looks different from one that died. */
+.running { animation: breathe 1.8s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* ── Sketches ────────────────────────────────────────── */
 
 .sketches { margin-top: 34px; }

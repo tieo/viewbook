@@ -1,0 +1,19 @@
+{
+  "title": "Viewbook",
+  "subtitle": "",
+  "tables": [
+    {
+      "name": "endpoints",
+      "title": "Endpoints",
+      "source": "endpoints.json",
+      "rows": "endpoints",
+      "statement": "Everything the server answers. A book is these addresses over a directory of plain files.",
+      "columns": [
+        { "field": "path", "title": "Address" },
+        { "field": "method", "title": "Method" },
+        { "field": "answers", "title": "What it is for" },
+        { "field": "writes", "title": "Changes something", "yes": "yes", "no": "reads only" }
+      ]
+    }
+  ]
+}

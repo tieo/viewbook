@@ -21,6 +21,8 @@ import (
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
 	say := flag.String("say", "", "command run with a message on stdin when something is changed or asked (e.g. \"proj say myproject\")")
+	keyFile := flag.String("key-file", defaultKeyPath(),
+		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `viewbook - a model of an app's views
 
@@ -54,9 +56,10 @@ name, with a list of them at the root.
 		}
 		server := &viewbook.Server{Root: root, Say: sayWith(*say)}
 		go server.Watch(stop)
+		title := projectName(root)
 		books = append(books, viewbook.Book{
-			Name:   strings.ToLower(filepath.Base(filepath.Dir(root))),
-			Title:  filepath.Base(filepath.Dir(root)),
+			Name:   strings.ToLower(title),
+			Title:  title,
 			Server: server,
 		})
 	}
@@ -65,11 +68,59 @@ name, with a list of them at the root.
 	if len(books) == 1 {
 		handler = books[0].Server.Handler("/")
 	}
-	fmt.Printf("viewbook on http://%s\n", *listen)
-	if err := http.ListenAndServe(*listen, handler); err != nil {
+
+	// What is typed here reaches whoever is working on the project, and with
+	// --say that is a command on this machine. The key is what keeps the page
+	// to the person who started it.
+	key := ""
+	if *keyFile != "" {
+		var err error
+		if key, err = viewbook.KeyAt(*keyFile); err != nil {
+			fmt.Fprintln(os.Stderr, "viewbook:", err)
+			os.Exit(1)
+		}
+	}
+	opening := "http://" + *listen + "/"
+	if key != "" {
+		opening += "?key=" + key
+	}
+	fmt.Printf("viewbook on %s\n", opening)
+	if err := http.ListenAndServe(*listen, viewbook.Guard(key, handler)); err != nil {
 		fmt.Fprintln(os.Stderr, "viewbook:", err)
 		os.Exit(1)
 	}
+}
+
+// projectName is what to call a book kept at a path like project/docs/model:
+// the project, rather than the folder it happens to be filed under, which is
+// the same word in every project and cannot tell two of them apart.
+func projectName(root string) string {
+	filed := map[string]bool{"model": true, "models": true, "docs": true, "doc": true}
+	for at := filepath.Clean(root); ; {
+		name := filepath.Base(at)
+		up := filepath.Dir(at)
+		if up == at || name == "" {
+			return filepath.Base(filepath.Clean(root))
+		}
+		if !filed[strings.ToLower(name)] {
+			return name
+		}
+		at = up
+	}
+}
+
+// defaultKeyPath is where the key that opens the books is kept: with the rest
+// of this machine's state, readable by its owner alone.
+func defaultKeyPath() string {
+	base := os.Getenv("XDG_STATE_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		base = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(base, "viewbook", "key")
 }
 
 // sayWith runs the configured command with the message on stdin. Whether that

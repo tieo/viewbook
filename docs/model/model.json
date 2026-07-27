@@ -1,0 +1,356 @@
+{
+  "views": [
+    {
+      "tag": "VIEW",
+      "relations": [],
+      "uid": "VIEW-INDEX",
+      "title": "Every view",
+      "statement": "Show every screen of the app being modelled at once, as each renders today.",
+      "status": "Built",
+      "renders": [
+        {
+          "file": "index-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "index-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "VIEW",
+      "relations": [],
+      "uid": "VIEW-VIEW",
+      "title": "A view",
+      "statement": "Everything about one screen in one place: how it renders, what it has to do, what state it can be in, and a way to ask for a change.",
+      "status": "Built",
+      "renders": [
+        {
+          "file": "view-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "VIEW",
+      "relations": [],
+      "uid": "VIEW-TABLE",
+      "title": "A table",
+      "statement": "Show a list the project already keeps as JSON, without the tool learning what the rows mean.",
+      "status": "Built",
+      "renders": [
+        {
+          "file": "table-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "table-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "VIEW",
+      "relations": [],
+      "uid": "VIEW-SKETCH",
+      "title": "A sketch",
+      "statement": "Draw a screen that does not exist yet, for the one job that genuinely wants a canvas.",
+      "status": "Built",
+      "renders": [
+        {
+          "file": "sketch-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "sketch-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "VIEW",
+      "relations": [],
+      "uid": "VIEW-BOOKS",
+      "title": "All books",
+      "statement": "List the projects being modelled, when more than one is served.",
+      "status": "Built",
+      "renders": [
+        {
+          "file": "books-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "books-tall.png",
+          "label": "upright"
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "tag": "STATE",
+      "uid": "STATE-INDEX-EMPTY",
+      "title": "Nothing renders yet",
+      "statement": "A project with no screenshots in img/ shows cards that say so rather than blanks.",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "State of"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-FOLLOWING",
+      "title": "Following the session",
+      "statement": "The conversation is polled and shown under the ask box.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-NOSESSION",
+      "title": "Nowhere to say it",
+      "statement": "No session is running, so asking says so instead of silently dropping the message.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "tag": "STORY",
+      "uid": "STORY-SEE",
+      "title": "See what the app looks like now",
+      "statement": "I want every screen in front of me as it currently renders, not as it was drawn.",
+      "status": "Served",
+      "relations": []
+    },
+    {
+      "tag": "STORY",
+      "uid": "STORY-ASK",
+      "title": "Ask for a change where I noticed it",
+      "statement": "I want to say what is wrong with a screen from the page showing that screen.",
+      "status": "Served",
+      "relations": []
+    },
+    {
+      "tag": "STORY",
+      "uid": "STORY-TRUST",
+      "title": "Trust that what I say arrived",
+      "statement": "I want to see that a message went somewhere, and see the answer come back.",
+      "status": "Served",
+      "relations": []
+    }
+  ],
+  "requirements": [
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-INDEX-CARDS",
+      "title": "A card per view, carrying its render",
+      "statement": "Every view of the modelled app is a card with its current screenshot, cropped so the screen is recognisable.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-INDEX-COUNTS",
+      "title": "Say what is built and what is not",
+      "statement": "Each card carries how many of that view's requirements are built, broken or missing.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-VIEW-RENDER",
+      "title": "The render beside the requirements",
+      "statement": "The screenshot sits next to what the view has to do, bounded by the window so a tall phone screen does not fill it.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-VIEW-ASK",
+      "title": "A box to ask from, with a button",
+      "statement": "What is typed goes to the conversation, the page says it went, and the tail of that conversation appears underneath.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-VIEW-PASTE",
+      "title": "Paste a screenshot into the ask",
+      "statement": "A pasted image is kept as a file in the project and its path travels with the message, because a conversation can be handed a path and not a clipboard.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-VIEW-STATUS",
+      "title": "Set a requirement's status in place",
+      "statement": "Built, broken or missing is one click, written straight into model.json.",
+      "status": "Built",
+      "tier": "2 one tap away",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-VIEW-NOTES",
+      "title": "Notes that are saved and announced once",
+      "statement": "A note saves as it is typed and is announced when the field is left, rather than sending a message per keystroke.",
+      "status": "Built",
+      "tier": "2 one tap away",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-LIVE",
+      "title": "The page follows the files",
+      "statement": "When the agent writes model.json or a render, every open page updates itself.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-TABLE-DECLARED",
+      "title": "Tables are declared, not coded",
+      "statement": "A project says which of its JSON files to show and what each column means; the tool never learns what the rows are about.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-TABLE",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-SKETCH-OWN-ADDRESS",
+      "title": "The canvas is behind its own address",
+      "statement": "Sketching is one job among many and does not get to be the container for the rest.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-SKETCH",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-BOOKS-LIST",
+      "title": "A project per path",
+      "statement": "Several projects are served at once, each under its own name, so a link to a view stays a link to that view.",
+      "status": "Built",
+      "tier": "1 canvas",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-ADD-FROM-PAGE",
+      "title": "Add a view or a requirement from the page",
+      "statement": "Status and notes can be edited; adding anything cannot, so the model still has to be written by hand or by a script.",
+      "status": "Missing",
+      "tier": "2 one tap away",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-STRUCTURE",
+      "title": "A glance at the code structure",
+      "statement": "Show the broad shape of the codebase being modelled - what lives where, how large it is, and where the same thing is done twice - so duplication and drift are visible without reading the code.",
+      "status": "Missing",
+      "tier": "2 one tap away",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "Lives in"
+        }
+      ]
+    },
+    {
+      "tag": "REQUIREMENT",
+      "uid": "REQ-RENDERS-REFRESH",
+      "title": "Renders that refresh themselves",
+      "statement": "A project declares the command that produces img/, and viewbook runs it rather than waiting for someone to remember.",
+      "status": "Missing",
+      "tier": "3 on request",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "Lives in"
+        }
+      ]
+    }
+  ]
+}

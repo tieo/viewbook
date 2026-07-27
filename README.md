@@ -21,11 +21,26 @@ nothing about rendering. Teams glue those together by hand; this is the glue as 
 Everything is a plain file in the project being modelled, so an edit in the browser is a diff in
 that project's repository, and whoever works on the app edits exactly what the browser shows.
 
+## Installing it
+
+    nix run github:tieo/viewbook -- path/to/model          # no checkout, no toolchain
+    nix profile install github:tieo/viewbook
+    go install github.com/tieo/viewbook/cmd/viewbook@latest
+
+The interface is committed built, and `go:embed` carries it into the binary, so installing needs no
+node and no npm step.
+
 ## Running it
 
     viewbook path/to/model
     viewbook --say "proj say myproject" path/to/model
     viewbook --listen 127.0.0.1:8099 one/model two/model
+
+It prints the address with a key in it. Open that once and the browser keeps the key; every request
+after that carries it, and one that does not is refused. The key is a file at
+`$XDG_STATE_HOME/viewbook/key`, readable by its owner alone, so whoever can read that file is who
+can open the book. Requests another site makes on the browser's behalf are refused whatever they
+carry, because what is typed here reaches a session that can run commands.
 
 `--say` is the whole integration surface: a command that receives a message on stdin. Point it at a
 chat, a session, a webhook, a log. [proj](https://github.com/tieo/proj) implements it as
@@ -36,9 +51,12 @@ package so `proj viewbook` serves every project it knows about.
 
     viewbook.json    what this book is called, and which tables it carries
     model.json       views, requirements, states, stories
-    img/small/*.png  a render per view
-    img/card/*.png   the same renders cropped for the index
+    img/*.png        a render per view; img/small and img/card hold sized copies where a project makes them
     wireframes/      sketches, written by the canvas
+
+A view names its renders, and a view can have more than one: an upright screen and a wide one are
+the same view seen on different hardware. Which is which is measured from the image, so the model
+declares nothing about shape.
 
 `viewbook.example.json` shows the config. Nothing in the tool knows anything about the app it is
 modelling, or what language that app is written in.

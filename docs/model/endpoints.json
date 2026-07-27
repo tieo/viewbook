@@ -1,0 +1,15 @@
+{
+  "endpoints": [
+    { "path": "api/config", "method": "GET", "answers": "what this book is called and which tables it carries", "writes": false },
+    { "path": "api/model", "method": "GET, PUT", "answers": "the model itself, read whole and written back whole", "writes": true },
+    { "path": "api/table/{name}", "method": "GET", "answers": "the JSON a declared table reads its rows from", "writes": false },
+    { "path": "api/sketches", "method": "GET", "answers": "every sketch this project holds", "writes": false },
+    { "path": "api/sketch/{name}", "method": "GET, PUT", "answers": "one sketch, as an Excalidraw scene", "writes": true },
+    { "path": "api/events", "method": "GET", "answers": "a stream that says when a file under the model changed", "writes": false },
+    { "path": "api/say", "method": "POST", "answers": "hands a message to whoever is working on the project", "writes": true },
+    { "path": "api/paste", "method": "POST", "answers": "keeps a pasted image outside the repository and answers with its path", "writes": true },
+    { "path": "api/session", "method": "GET", "answers": "what the conversation looks like right now", "writes": false },
+    { "path": "img/{file}", "method": "GET", "answers": "a render, falling back from img/small and img/card to img itself", "writes": false },
+    { "path": "pasted/{file}", "method": "GET", "answers": "an image this page pasted", "writes": false }
+  ]
+}

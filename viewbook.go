@@ -86,11 +86,14 @@ func (s *Server) Handler(prefix string) http.Handler {
 	mux.HandleFunc(prefix+"api/config", s.getConfig)
 	mux.HandleFunc(prefix+"api/model", s.model)
 	mux.HandleFunc(prefix+"api/table/", s.table)
+	mux.HandleFunc(prefix+"api/sketches", s.sketches)
 	mux.HandleFunc(prefix+"api/sketch/", s.sketch)
 	mux.HandleFunc(prefix+"api/events", s.events)
 	mux.HandleFunc(prefix+"api/say", s.say)
+	mux.HandleFunc(prefix+"api/paste", s.paste)
 	mux.HandleFunc(prefix+"api/session", s.session)
 	mux.HandleFunc(prefix+"img/", s.image)
+	mux.HandleFunc(prefix+"pasted/", s.pasted)
 	s.prefix = prefix
 
 	built, err := fs.Sub(site, "web/dist")
@@ -147,9 +150,6 @@ func (s *Server) config() Config {
 	}
 	if cfg.Title == "" {
 		cfg.Title = filepath.Base(s.Root)
-	}
-	if cfg.Subtitle == "" {
-		cfg.Subtitle = "the model"
 	}
 	if cfg.Tables == nil {
 		cfg.Tables = []Table{}
@@ -216,6 +216,59 @@ func (s *Server) say(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"sent": true})
 }
 
+// paste keeps an image dropped into the page as a file in the project, and
+// answers with its path. A conversation can be handed a path; it cannot be
+// handed a clipboard.
+func (s *Server) paste(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 25<<20))
+	if err != nil || len(body) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no image"})
+		return
+	}
+	kind := "png"
+	switch r.Header.Get("Content-Type") {
+	case "image/jpeg":
+		kind = "jpg"
+	case "image/webp":
+		kind = "webp"
+	case "image/gif":
+		kind = "gif"
+	}
+	dir := pasteDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	name := fmt.Sprintf("%s.%s", time.Now().Format("2006-01-02-150405.000"), kind)
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"path": path, "url": "pasted/" + name})
+}
+
+// pasteDir is where an image dropped into the page is kept: beside the rest of
+// the cache, never in the project, because a screenshot pasted to ask a
+// question is not part of the model and has no business in its repository.
+func pasteDir() string {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "viewbook", "pasted")
+}
+
+// pasted serves an image back to the page that pasted it.
+func (s *Server) pasted(w http.ResponseWriter, r *http.Request) {
+	wanted := filepath.Base(filepath.Clean(strings.TrimPrefix(r.URL.Path, s.prefix+"pasted/")))
+	s.serveFile(w, filepath.Join(pasteDir(), wanted), "image/png")
+}
+
 // session is the tail of the conversation, for a page that has just said
 // something and wants to show the reply.
 func (s *Server) session(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +288,22 @@ func (s *Server) table(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such table"})
+}
+
+// sketches is every sketch this project holds, so a screen drawn before it
+// exists stays findable instead of living at an address someone has to
+// remember.
+func (s *Server) sketches(w http.ResponseWriter, r *http.Request) {
+	drawn := []string{}
+	entries, err := os.ReadDir(s.path("wireframes"))
+	if err == nil {
+		for _, entry := range entries {
+			if sketch := strings.TrimSuffix(entry.Name(), ".excalidraw"); sketch != entry.Name() {
+				drawn = append(drawn, sketch)
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, drawn)
 }
 
 func (s *Server) sketch(w http.ResponseWriter, r *http.Request) {
@@ -278,12 +347,22 @@ func (s *Server) sketch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// image serves a render out of the project's img directory.
+//
+// A project that keeps sized copies in img/small and img/card is served those;
+// one that drops a single file in img/ is served that same file for both, so
+// having renders at all costs a project nothing but the renders.
 func (s *Server) image(w http.ResponseWriter, r *http.Request) {
 	wanted := filepath.Clean(strings.TrimPrefix(r.URL.Path, s.prefix+"img/"))
 	path := s.path("img", wanted)
 	if !strings.HasPrefix(path, s.path("img")+string(os.PathSeparator)) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "outside"})
 		return
+	}
+	if _, err := os.Stat(path); err != nil {
+		if sized := filepath.Dir(wanted); sized == "small" || sized == "card" {
+			path = s.path("img", filepath.Base(wanted))
+		}
 	}
 	s.serveFile(w, path, "image/png")
 }

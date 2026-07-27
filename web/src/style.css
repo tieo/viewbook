@@ -754,3 +754,6 @@ textarea.ask { min-height: 0; }
   line-height: 1.5;
   max-width: 78ch;
 }
+
+.loading.broken { color: var(--broken); }
+.loading.broken .why { color: var(--quiet); font-size: 13px; margin-top: 6px; }

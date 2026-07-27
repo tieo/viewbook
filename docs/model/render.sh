@@ -19,8 +19,24 @@ trap 'rm -rf "$work"; [ -n "${server:-}" ] && kill "$server" 2>/dev/null || true
 mkdir -p "$work/example/docs"
 cp -r "$here" "$work/example/docs/model"
 
-viewbook --listen "127.0.0.1:$port" --key-file "$work/key" "$here" "$work/example/docs/model" \
-  >"$work/serve.log" 2>&1 &
+# A copy with its renders taken away, so the card that says nothing renders this
+# yet can be photographed saying it.
+mkdir -p "$work/bare/docs"
+cp -r "$here" "$work/bare/docs/model"
+rm -f "$work/bare/docs/model/img/"*.png
+
+# A conversation to show in the states that have one. Nothing summons a real
+# session for a screenshot.
+cat > "$work/session.txt" <<'TALK'
+> About Results: the price column is cut off on a phone
+
+  Reading src/main.jsx, then the two rules that size that column.
+
+* Working (12s)
+TALK
+
+viewbook --listen "127.0.0.1:$port" --key-file "$work/key" --session-file "$work/session.txt" \
+  "$here" "$work/example/docs/model" "$work/bare/docs/model" >"$work/serve.log" 2>&1 &
 server=$!
 
 for _ in $(seq 30); do
@@ -67,5 +83,27 @@ table BOOK #/table/endpoints
 sketch BOOK #/sketch/scratch
 books / -
 VIEWS
+
+# The states a screen here can be in, which the page will show on demand so they
+# can be photographed: waiting for the model, holding nothing, and failing to
+# read it. A book that demands these of every project draws its own.
+echo "rendering the states"
+for state in loading empty failed; do
+  for page in "index:#/" "view:#/view/index" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
+    name="${page%%:*}"
+    hash="${page#*:}"
+    shoot "$name-$state-wide" "$book" "&showing=$state$hash" 1440 900
+    shoot "$name-$state-tall" "$book" "&showing=$state$hash" 430 932
+  done
+  shoot "books-$state-wide" "/" "&showing=$state" 1440 900
+  shoot "books-$state-tall" "/" "&showing=$state" 430 932
+done
+
+# A book whose views have no renders, and a view whose conversation is running.
+bare="/bare/"
+shoot "index-bare-wide" "$bare" "#/" 1440 900
+shoot "index-bare-tall" "$bare" "#/" 430 932
+shoot "view-talking-wide" "$book" "#/view/view" 1440 900
+shoot "view-talking-tall" "$book" "#/view/view" 430 932
 
 echo "done"

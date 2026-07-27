@@ -21,6 +21,8 @@ import (
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
 	say := flag.String("say", "", "command run with a message on stdin when something is changed or asked (e.g. \"proj say myproject\")")
+	sessionFile := flag.String("session-file", "",
+		"file whose contents are shown as the conversation; for rendering the states that have one")
 	gaps := flag.Bool("gaps", false, "list the states nothing renders and exit non-zero when there are any")
 	keyFile := flag.String("key-file", defaultKeyPath(),
 		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
@@ -80,7 +82,7 @@ name, with a list of them at the root.
 			fmt.Fprintf(os.Stderr, "viewbook: no model.json in %s\n", root)
 			os.Exit(1)
 		}
-		server := &viewbook.Server{Root: root, Say: sayWith(*say)}
+		server := &viewbook.Server{Root: root, Say: sayWith(*say), Session: sessionFrom(*sessionFile)}
 		go server.Watch(stop)
 		title := projectName(root)
 		books = append(books, viewbook.Book{
@@ -147,6 +149,22 @@ func defaultKeyPath() string {
 		base = filepath.Join(home, ".local", "state")
 	}
 	return filepath.Join(base, "viewbook", "key")
+}
+
+// sessionFrom reads the conversation from a file, which is how a project draws
+// the states of a screen that has one: a real session cannot be summoned for a
+// screenshot, and a screen showing a conversation is a state like any other.
+func sessionFrom(path string) func() string {
+	if path == "" {
+		return nil
+	}
+	return func() string {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return ""
+		}
+		return string(body)
+	}
 }
 
 // sayWith runs the configured command with the message on stdin. Whether that

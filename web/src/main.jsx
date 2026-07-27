@@ -84,6 +84,10 @@ function App() {
   // Renders are files, and a browser holds on to a file it has already seen.
   // This changes with them, so what is on screen is what is on disk.
   const [stamp, setStamp] = useState(0);
+  const [broken, setBroken] = useState("");
+  // A screenshot of a state needs the state to happen on demand. This is how
+  // viewbook renders its own: ?showing=loading, empty or failed.
+  const forced = new URLSearchParams(location.search).get("showing") || "";
   const timer = useRef(null);
   const renders = useRenders();
   const theme = useTheme();
@@ -92,8 +96,8 @@ function App() {
   const running = useRef(null);
 
   const reload = useCallback(() => {
-    api("api/model").then(setModel);
-    api("api/config").then(setConfig);
+    api("api/model").then(setModel).catch((error) => setBroken(error.message));
+    api("api/config").then(setConfig).catch((error) => setBroken(error.message));
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
@@ -142,9 +146,18 @@ function App() {
     }, SAVE_AFTER_IDLE_MS);
   }, []);
 
+  if (forced === "loading") return <div className="loading">Reading the model…</div>;
+  if (forced === "failed" || (broken && (!model || !config))) {
+    return (
+      <div className="loading broken">
+        <p>This book&rsquo;s model could not be read.</p>
+        <p className="why">{broken || "model.json is not there, or is not a model"}</p>
+      </div>
+    );
+  }
   if (!model || !config) return <div className="loading">Reading the model…</div>;
 
-  const views = model.views;
+  const views = forced === "empty" ? [] : model.views;
   const [section, argument] = route.split("/");
 
   let page;
@@ -291,24 +304,26 @@ function Render({ model, view, onShowing, stamp, theme, required }) {
   const states = statesOf(model, view, required);
   const [state, setState] = useState(0);
   const [chosen, setChosen] = useState(0);
+  const [gone, setGone] = useState(false);
 
   const here = states[Math.min(state, states.length - 1)];
   const shots = here.shots;
 
   useEffect(() => { setState(0); }, [view.uid]);
-  useEffect(() => { setChosen(preferred(shots, theme)); }, [view.uid, state, theme]);
+  useEffect(() => { setChosen(preferred(shots, theme)); setGone(false); }, [view.uid, state, theme]);
 
   const tell = (which) => onShowing({
     state: here.title,
     named: which ? (which.label ?? which.file.replace(/\.[a-z]+$/, "")) : "",
   });
 
-  const shot = shots[Math.min(chosen, shots.length - 1)];
+  const shot = gone ? null : shots[Math.min(chosen, shots.length - 1)];
   return (
     <>
       {shot ? (
         <div className="frame">
           <img
+            onError={() => setGone(true)}
             src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
             alt={`${view.title}, ${here.title}`}
             onLoad={(e) => onShowing({
@@ -386,11 +401,14 @@ function preferred(shots, theme) {
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
 function Thumb({ view, stamp, theme }) {
   const [shape, setShape] = useState("portrait");
+  const [gone, setGone] = useState(false);
   const shots = rendersOf(view);
-  if (shots.length === 0) return <div className="noshot">nothing renders this yet</div>;
+  useEffect(() => setGone(false), [view.uid]);
+  if (shots.length === 0 || gone) return <div className="noshot">nothing renders this yet</div>;
   const shot = shots[preferred(shots, theme)];
   return (
     <img
+      onError={() => setGone(true)}
       className={shape}
       src={`${base}img/card/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
       alt={view.title}
@@ -421,6 +439,12 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
           {gaps} {gaps === 1 ? "state has" : "states have"} no render. A screen is not one picture:
           it waits, it has nothing to show, and it fails. Until a project renders those, this book
           shows only the happy one.
+        </p>
+      )}
+      {views.length === 0 && (
+        <p className="hint">
+          This book models no views yet. A view is a screen of the app: what it is for, what it has
+          to do, and what it looks like today.
         </p>
       )}
       <div className="grid">

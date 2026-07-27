@@ -103,6 +103,16 @@
           "to": "VIEW-INDEX",
           "role": "State of"
         }
+      ],
+      "renders": [
+        {
+          "file": "index-bare-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "index-bare-tall.png",
+          "label": "upright"
+        }
       ]
     },
     {
@@ -115,6 +125,16 @@
           "to": "VIEW-VIEW",
           "role": "State of"
         }
+      ],
+      "renders": [
+        {
+          "file": "view-talking-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-talking-tall.png",
+          "label": "upright"
+        }
       ]
     },
     {
@@ -126,6 +146,346 @@
         {
           "to": "VIEW-VIEW",
           "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "view-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-INDEX-LOADING",
+      "title": "Loading",
+      "statement": "The model is being read; nothing is known about the app yet.",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "index-loading-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "index-loading-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-INDEX-FAILED",
+      "title": "Failed",
+      "statement": "model.json is missing or is not a model, and the page says so instead of waiting forever.",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "index-failed-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "index-failed-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-LOADING",
+      "title": "Loading",
+      "statement": "The model is being read.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "view-loading-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-loading-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-EMPTY",
+      "title": "Empty",
+      "statement": "The book models no views, so there is no view to be on.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "view-empty-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-empty-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-FAILED",
+      "title": "Failed",
+      "statement": "The model could not be read.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "view-failed-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "view-failed-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-INDEX-NOVIEWS",
+      "title": "Empty",
+      "statement": "The book models no views yet.",
+      "relations": [
+        {
+          "to": "VIEW-INDEX",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "index-empty-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "index-empty-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-TABLE-LOADING",
+      "title": "Loading",
+      "statement": "The rows are being read.",
+      "relations": [
+        {
+          "to": "VIEW-TABLE",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "table-loading-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "table-loading-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-TABLE-EMPTY",
+      "title": "Empty",
+      "statement": "The book models nothing to tabulate.",
+      "relations": [
+        {
+          "to": "VIEW-TABLE",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "table-empty-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "table-empty-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-TABLE-FAILED",
+      "title": "Failed",
+      "statement": "The model could not be read.",
+      "relations": [
+        {
+          "to": "VIEW-TABLE",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "table-failed-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "table-failed-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-SKETCH-LOADING",
+      "title": "Loading",
+      "statement": "The model is being read before the canvas opens.",
+      "relations": [
+        {
+          "to": "VIEW-SKETCH",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "sketch-loading-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "sketch-loading-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-SKETCH-EMPTY",
+      "title": "Empty",
+      "statement": "A canvas with nothing drawn on it yet.",
+      "relations": [
+        {
+          "to": "VIEW-SKETCH",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "sketch-empty-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "sketch-empty-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-SKETCH-FAILED",
+      "title": "Failed",
+      "statement": "The model could not be read.",
+      "relations": [
+        {
+          "to": "VIEW-SKETCH",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "sketch-failed-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "sketch-failed-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-BOOKS-LOADING",
+      "title": "Loading",
+      "statement": "The list is being read.",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "books-loading-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "books-loading-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-BOOKS-EMPTY",
+      "title": "Empty",
+      "statement": "No project served here has a model.",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "books-empty-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "books-empty-tall.png",
+          "label": "upright"
+        }
+      ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-BOOKS-FAILED",
+      "title": "Failed",
+      "statement": "The list could not be read.",
+      "relations": [
+        {
+          "to": "VIEW-BOOKS",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "books-failed-wide.png",
+          "label": "wide"
+        },
+        {
+          "file": "books-failed-tall.png",
+          "label": "upright"
         }
       ]
     }

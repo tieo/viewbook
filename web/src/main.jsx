@@ -29,6 +29,30 @@ const slug = (uid) => uid.replace(/^VIEW-/, "").toLowerCase();
 const statusClass = (status) => `pill ${status.toLowerCase()}`;
 
 /**
+ * Light or dark, which is the reader's to decide.
+ *
+ * Nothing is stored until someone chooses, so a screen that is already dark
+ * stays dark without being asked.
+ */
+function useTheme() {
+  const [chosen, setChosen] = useState(() => localStorage.getItem("viewbook.theme") || "");
+  const screen = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  const showing = chosen || screen;
+
+  useEffect(() => {
+    if (chosen) document.documentElement.setAttribute("data-theme", chosen);
+    else document.documentElement.removeAttribute("data-theme");
+  }, [chosen]);
+
+  const flip = () => {
+    const next = showing === "dark" ? "light" : "dark";
+    localStorage.setItem("viewbook.theme", next);
+    setChosen(next);
+  };
+  return { showing, flip };
+}
+
+/**
  * The command that makes this project's renders, and what it is saying.
  *
  * A build that prints nothing for four minutes is indistinguishable from one
@@ -62,6 +86,7 @@ function App() {
   const [stamp, setStamp] = useState(0);
   const timer = useRef(null);
   const renders = useRenders();
+  const theme = useTheme();
 
   const reload = useCallback(() => {
     api("api/model").then(setModel);
@@ -78,10 +103,11 @@ function App() {
   useEffect(() => {
     if (new URLSearchParams(location.search).has("static")) return undefined;
     const stream = new EventSource(base + "api/events");
+    // A file changed under the page, so the page shows the new one. Saying so
+    // in the corner tells nobody anything they cannot see.
     stream.addEventListener("changed", () => {
       reload();
       setStamp(Date.now());
-      setSaved("updated");
     });
     return () => stream.close();
   }, [reload]);
@@ -115,7 +141,7 @@ function App() {
   if (section === "view") {
     const view = views.find((v) => slug(v.uid) === argument);
     page = view
-      ? <ViewPage model={model} view={view} onChange={save} stamp={stamp} />
+      ? <ViewPage model={model} view={view} onChange={save} stamp={stamp} theme={theme.showing} />
       : <NoSuchView />;
   } else if (section === "sketch") {
     page = <Sketch name={argument} title={views.find((v) => slug(v.uid) === argument)?.title} />;
@@ -123,7 +149,7 @@ function App() {
     const table = config.tables.find((t) => t.name === argument);
     page = table ? <TablePage table={table} /> : <NoSuchView what="table" />;
   } else {
-    page = <IndexPage views={views} model={model} stamp={stamp} renders={renders} />;
+    page = <IndexPage views={views} model={model} stamp={stamp} renders={renders} theme={theme.showing} />;
   }
 
   // One bar across the top rather than a column down the side: a screen in
@@ -136,7 +162,8 @@ function App() {
     <div className="shell">
       <header className="bar">
         <span className="brand">
-          <a className="tool" href="/">Viewbook</a>
+          {/* A book named after the tool is not named twice. */}
+          {config.title.toLowerCase() !== "viewbook" && <span className="tool">Viewbook</span>}
           <a className={`book ${route === "" ? "on" : ""}`} href="#/">{config.title}</a>
         </span>
         <nav className="tabs">
@@ -163,6 +190,16 @@ function App() {
         {renders.running && (
           <a className="running" href="#/" title="the renders are being made">making renders</a>
         )}
+        {/* The way out of this book, which the book's own name is not: it leads
+            to this book's index. A book served alone has nowhere else to go. */}
+        {base !== "/" && <a className="books" href="/">all books</a>}
+        <button
+          className="theme"
+          onClick={theme.flip}
+          title={`showing ${theme.showing}; click for ${theme.showing === "dark" ? "light" : "dark"}`}
+        >
+          {theme.showing === "dark" ? "☾" : "☀"}
+        </button>
         <span className="state">{saved}</span>
       </header>
       <main>{page}</main>
@@ -192,11 +229,11 @@ function requirementsOf(model, uid) {
  * carry both. Which one an image is, is measured when it loads rather than
  * declared in the model, so a project only has to drop the file in img/.
  */
-function Render({ view, onShape, stamp }) {
+function Render({ view, onShape, stamp, theme }) {
   const shots = rendersOf(view);
-  const [chosen, setChosen] = useState(0);
+  const [chosen, setChosen] = useState(() => preferred(shots, theme));
 
-  useEffect(() => setChosen(0), [view.uid]);
+  useEffect(() => setChosen(preferred(rendersOf(view), theme)), [view.uid, theme]);
 
   if (shots.length === 0) {
     return <div className="noshot tall"><span>Nothing renders this yet.</span></div>;
@@ -236,15 +273,32 @@ function rendersOf(view) {
   return view.screenshot ? [{ file: view.screenshot }] : [];
 }
 
+/**
+ * The render to show first when a view carries several.
+ *
+ * A project that ships a screen drawn light and the same screen drawn dark says
+ * so in the file name or the label, and the page shows the one that matches what
+ * the reader is looking at rather than a grid of screenshots in two themes.
+ */
+function preferred(shots, theme) {
+  const says = (shot) => `${shot.label ?? ""} ${shot.file}`.toLowerCase().includes(theme);
+  const matching = shots.findIndex(says);
+  // No render says which theme it is, so the first one stands. Guessing by
+  // elimination would swap an upright render for a wide one, which answers a
+  // question nobody asked.
+  return matching >= 0 ? matching : 0;
+}
+
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
-function Thumb({ view, stamp }) {
+function Thumb({ view, stamp, theme }) {
   const [shape, setShape] = useState("portrait");
   const shots = rendersOf(view);
   if (shots.length === 0) return <div className="noshot">nothing renders this yet</div>;
+  const shot = shots[preferred(shots, theme)];
   return (
     <img
       className={shape}
-      src={`${base}img/card/${shots[0].file}${stamp ? `?v=${stamp}` : ""}`}
+      src={`${base}img/card/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
       alt={view.title}
       loading="lazy"
       onLoad={(e) => setShape(e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait")}
@@ -252,7 +306,7 @@ function Thumb({ view, stamp }) {
   );
 }
 
-function IndexPage({ views, model, stamp, renders }) {
+function IndexPage({ views, model, stamp, renders, theme }) {
   const open = model.requirements.filter((r) => r.status !== "Built");
   return (
     <div className="page">
@@ -271,7 +325,7 @@ function IndexPage({ views, model, stamp, renders }) {
           return (
             <a className="card" key={view.uid} href={`#/view/${slug(view.uid)}`}>
               <div className="shot">
-                <Thumb view={view} stamp={stamp} />
+                <Thumb view={view} stamp={stamp} theme={theme} />
               </div>
               <div className="card-body">
                 <h2>{view.title}</h2>
@@ -371,7 +425,7 @@ function SketchBox() {
 /** Whether this screen has room for anything beyond the render and the conversation. */
 const roomToSpare = () => window.matchMedia("(min-width: 1000px) and (min-height: 800px)").matches;
 
-function ViewPage({ model, view, onChange, stamp }) {
+function ViewPage({ model, view, onChange, stamp, theme }) {
   const uid = view.uid;
   const [shape, setShape] = useState("portrait");
   const [more, setMore] = useState(roomToSpare);
@@ -424,7 +478,7 @@ function ViewPage({ model, view, onChange, stamp }) {
           room for it, out of the way entirely. */}
       <div className={`work ${shape}`}>
         <section className="render">
-          <Render view={view} onShape={setShape} stamp={stamp} />
+          <Render view={view} onShape={setShape} stamp={stamp} theme={theme} />
         </section>
         <Ask about={view.title} />
       </div>

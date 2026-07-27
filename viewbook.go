@@ -99,10 +99,7 @@ func (s *Server) Handler(prefix string) http.Handler {
 	mux.HandleFunc(prefix+"pasted/", s.pasted)
 	s.prefix = prefix
 
-	built, err := fs.Sub(site, "web/dist")
-	if err != nil {
-		panic(fmt.Sprintf("viewbook: built interface missing: %v", err))
-	}
+	built := interfaceFrom(os.Getenv("VIEWBOOK_WEB"))
 	files := http.StripPrefix(strings.TrimSuffix(prefix, "/"), http.FileServer(http.FS(built)))
 	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 		// A book mounted at /name must be reached as /name/, or every relative
@@ -121,6 +118,26 @@ func (s *Server) Handler(prefix string) http.Handler {
 		files.ServeHTTP(w, r)
 	})
 	return mux
+}
+
+// interfaceFrom is where the pages are read from: the copy built into this
+// binary, or a directory when VIEWBOOK_WEB names one.
+//
+// Working on the interface otherwise means rebuilding and redeploying the
+// server to see a changed line of CSS, which is minutes of waiting for
+// something the browser could have shown on a refresh.
+func interfaceFrom(directory string) fs.FS {
+	if directory != "" {
+		if _, err := os.Stat(filepath.Join(directory, "index.html")); err == nil {
+			return os.DirFS(directory)
+		}
+		fmt.Fprintf(os.Stderr, "viewbook: no index.html in %s, serving the built-in interface\n", directory)
+	}
+	built, err := fs.Sub(site, "web/dist")
+	if err != nil {
+		panic(fmt.Sprintf("viewbook: built interface missing: %v", err))
+	}
+	return built
 }
 
 func (s *Server) path(parts ...string) string {

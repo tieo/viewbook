@@ -154,6 +154,10 @@ func (s *Server) startRenders(declared *Renders) bool {
 			fmt.Fprintf(&s.making, "\n%v\nPATH was %s\n", err, os.Getenv("PATH"))
 		}
 
+		if left := s.Gaps(); len(left) > 0 {
+			fmt.Fprintf(&s.making, "\n%d states nothing renders:\n%s", len(left), Said(left))
+		}
+
 		s.making.Lock()
 		s.making.running = false
 		s.making.finished = time.Now()

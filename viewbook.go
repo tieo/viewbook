@@ -183,6 +183,12 @@ func (s *Server) config() Config {
 	if cfg.Tables == nil {
 		cfg.Tables = []Table{}
 	}
+	// A project that names no states has not decided it has none; it has not
+	// thought about them. These three are what every screen does whatever it is
+	// for: it waits, it has nothing to show, and it fails.
+	if cfg.States == nil {
+		cfg.States = []string{"Loading", "Empty", "Failed"}
+	}
 	return cfg
 }
 

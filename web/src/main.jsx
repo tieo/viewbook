@@ -415,6 +415,13 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
           </p>
         </div>
       </header>
+      {gaps > 0 && (
+        <p className="gapbanner">
+          {gaps} {gaps === 1 ? "state has" : "states have"} no render. A screen is not one picture:
+          it waits, it has nothing to show, and it fails. Until a project renders those, this book
+          shows only the happy one.
+        </p>
+      )}
       <div className="grid">
         {views.map((view) => {
           const own = requirementsOf(model, view.uid);

@@ -742,3 +742,15 @@ textarea.ask { min-height: 0; }
 @media (orientation: landscape) and (max-height: 560px) {
   .work { height: calc(100dvh - 150px); }
 }
+
+/* What the book does not show, said before what it does. */
+.gapbanner {
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border: 1px dashed var(--missing);
+  border-radius: 10px;
+  color: var(--missing);
+  font-size: 13.5px;
+  line-height: 1.5;
+  max-width: 78ch;
+}

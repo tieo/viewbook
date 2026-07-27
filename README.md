@@ -58,6 +58,23 @@ A view names its renders, and a view can have more than one: an upright screen a
 the same view seen on different hardware. Which is which is measured from the image, so the model
 declares nothing about shape.
 
+## Every state, not just the happy one
+
+A screen is full and it is empty, it is loading and it has failed, it is permitted and refused. A
+book that shows only the happy state lies by omission, and the lie is invisible: a missing empty
+state looks exactly like one that cannot happen.
+
+A state is an entry in `model.json` related to its view by `State of`, and it carries renders of its
+own. `viewbook.json` names the states every view is expected to have:
+
+    "states": ["Empty", "Failed"]
+
+The page then lists them as chips, each with its own render, and a state nothing renders is listed
+anyway, dashed and in the colour of something missing. The index counts them. So does the command
+line, which is how a build is held to it:
+
+    viewbook --gaps path/to/model     # prints "Results: Empty", exits 1 when any are missing
+
 `viewbook.example.json` shows the config. Nothing in the tool knows anything about the app it is
 modelling, or what language that app is written in.
 

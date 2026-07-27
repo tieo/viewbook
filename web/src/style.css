@@ -660,11 +660,16 @@ textarea.ask { min-height: 0; }
    frame it sits in. */
 .work .render img { width: 100%; height: auto; }
 
+/* The frame is the size of the render inside it, so a wide screen is not
+   surrounded by an acre of empty panel. */
 .work.landscape .render .frame {
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .work.landscape .render img {

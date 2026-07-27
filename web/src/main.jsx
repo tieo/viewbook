@@ -267,7 +267,7 @@ function statesOf(model, view, required) {
   const own = model.states.filter((state) =>
     state.relations?.some((r) => r.to === view.uid && r.role === "State of"));
 
-  const asItIs = { uid: `${view.uid}-AS-IT-IS`, title: "As it is", shots: rendersOf(view) };
+  const asItIs = { uid: `${view.uid}-DEFAULT`, title: "Default", shots: rendersOf(view) };
   const shown = own.map((state) => ({
     uid: state.uid,
     title: state.title,
@@ -326,6 +326,7 @@ function Render({ model, view, onShowing, stamp, theme, required }) {
         </div>
       )}
 
+      {states.length > 1 && (
       <div className="shapes">
         {states.map((one, index) => (
           <button
@@ -338,6 +339,7 @@ function Render({ model, view, onShowing, stamp, theme, required }) {
           </button>
         ))}
       </div>
+      )}
 
       {shots.length > 1 && (
         <div className="shapes">

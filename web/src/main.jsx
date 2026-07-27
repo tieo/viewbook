@@ -282,8 +282,9 @@ function statesOf(model, view, required) {
     .filter((title) => !named.has(String(title).toLowerCase()))
     .map((title) => ({ uid: `${view.uid}-${title}`, title, shots: [], promised: true }));
 
-  return [asItIs, ...shown, ...missing].filter(
-    (state, index) => index === 0 || state.shots.length > 0 || state.promised);
+  // Every state the model knows of is listed whether or not anything renders
+  // it. Hiding the unrendered ones would hide exactly what this is for.
+  return [asItIs, ...shown, ...missing];
 }
 
 function Render({ model, view, onShowing, stamp, theme, required }) {

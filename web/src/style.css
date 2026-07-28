@@ -834,9 +834,12 @@ textarea.ask { min-height: 0; }
   flex-direction: column;
 }
 
-/* Cropped to the top: what identifies a state is the top of the screen, and a
-   caption nobody can see because the picture is 900 pixels tall says nothing. */
+/* Cropped to the top, which is what identifies a web screen; whole, which is
+   what a phone or a terminal needs, since the difference between empty and
+   failed is usually written in the middle of it. */
 .compare img { width: 100%; height: 380px; object-fit: cover; object-position: top; display: block; }
+
+.compare.whole img { height: auto; max-height: 70vh; object-fit: contain; background: var(--bg); }
 
 .compare figcaption {
   padding: 9px 12px;

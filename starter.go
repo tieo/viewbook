@@ -21,14 +21,13 @@ func Start(dir, title string) error {
 		return err
 	}
 
+	// No renders command is written: one naming a script that does not exist
+	// promises a button that fails the first time it is pressed. What draws this
+	// project's screens is the project's to connect, and the next-steps text
+	// says how.
 	config := map[string]any{
 		"title":  title,
 		"states": []string{"Loading", "Empty", "Failed"},
-		"renders": map[string]any{
-			"command":   []string{"./make-renders.sh"},
-			"dir":       "../..",
-			"statement": "What draws this project's screens. Replace with the real thing.",
-		},
 	}
 	model := map[string]any{
 		"views": []any{map[string]any{

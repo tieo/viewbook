@@ -605,6 +605,9 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
   const [gone, setGone] = useState({});
 
   const comparing = state === -1;
+  // A top slice identifies a web screen; on a phone or a terminal what makes a
+  // state different is often at the bottom, so the whole frame is one click away.
+  const [whole, setWhole] = useState(false);
   const here = states[Math.min(Math.max(state, 0), states.length - 1)];
   // A screen drawn light and the same screen drawn dark are the same picture to
   // anyone not reading in that theme, so only the matching ones are shown.
@@ -634,8 +637,20 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
       .filter((one) => one.shot);
     return (
       <div className="page">
-        <Steer states={states} state={state} setState={setState} view={view} model={model} />
-        <div className="compare">
+        <Steer
+          states={states}
+          state={state}
+          setState={setState}
+          view={view}
+          model={model}
+          extra={(
+            <div className="chips">
+              <button className={whole ? "" : "on"} onClick={() => setWhole(false)}>Tops</button>
+              <button className={whole ? "on" : ""} onClick={() => setWhole(true)}>Whole</button>
+            </div>
+          )}
+        />
+        <div className={`compare ${whole ? "whole" : ""}`}>
           {shown.map(({ state: one, shot }) => (
             <figure key={one.uid}>
               <figcaption>{one.title}</figcaption>

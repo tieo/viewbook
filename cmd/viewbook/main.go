@@ -59,12 +59,23 @@ name, with a list of them at the root.
 			}
 			fmt.Printf(`wrote a book into %s
 
-  viewbook.json   what it is called, which states every view must have, and what draws them
+  viewbook.json   what it is called and which states every view must have
   model.json      one example view and one requirement, to replace with real ones
   img/            where the renders go
 
-Next: viewbook %s      serve it
-      viewbook --gaps %s   list the states nothing renders yet
+Next:
+  1. Replace the example view with this project's screens, one entry each.
+  2. Draw them however this project can - a screenshot test, a headless browser,
+     an off-screen renderer - into img/, named so the shape and the theme are in
+     the file name: home-phone-dark.png.
+  3. List them on the view, and on each state, as
+     {"file": "home-phone-dark.png", "label": "phone dark"}.
+  4. Say what draws them, and the page gets a button that runs it:
+     "renders": {"command": ["./make-renders.sh"], "dir": "../.."}
+     A command-line program says so too: "shapes": ["terminal"]
+
+  viewbook --gaps %s   what is still missing
+  viewbook %s          read it
 `, root, root, root)
 		}
 		return

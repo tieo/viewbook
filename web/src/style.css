@@ -178,7 +178,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Pages ───────────────────────────────────────────── */
 
-main { flex: 1; min-width: 0; overflow-y: auto; }
+main { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; }
 
 /* The last of the page clears the composer docked over it. */
 .page { padding: 24px clamp(14px, 3vw, 34px) 40px; max-width: none; }
@@ -593,8 +593,8 @@ textarea.ask { min-height: 0; }
   grid-template-columns: minmax(0, 1fr);
   /* The bar, the heading and the page's own margins are what the window has
      already spent; the three things share what is left of it. */
-  height: calc(100vh - 130px);
-  height: calc(100dvh - 130px);
+  height: calc(100vh - 190px);
+  height: calc(100dvh - 190px);
   min-height: 380px;
 }
 
@@ -613,7 +613,7 @@ textarea.ask { min-height: 0; }
 
 /* A render fills the pane it was given and scrolls in it when it is taller
    than the pane; how wide that pane is, is the reader's business. */
-.pane .frame { flex: 1; min-width: 0; min-height: 0; max-height: none; overflow: auto; }
+.pane .frame { flex: 1; min-width: 0; min-height: 0; max-height: none; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; }
 
 /* An upright screen is drawn at the width it was made for and scrolled; a wide
    one is a whole screen already, so it is fitted rather than cropped by the
@@ -629,7 +629,7 @@ textarea.ask { min-height: 0; }
   overflow: auto;
 }
 
-.pane .frame img { width: 100%; height: auto; display: block; }
+.pane .frame img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
 
 
 
@@ -667,12 +667,12 @@ textarea.ask { min-height: 0; }
    with a scrollbar around three lines of its own placeholder. */
 .talk textarea.ask {
   flex: none;
+  /* The browser sizes it to its own content: one line empty, taller as it is
+     written in, never past a third of the window. */
+  field-sizing: content;
   min-height: 44px;
-  /* Grows with what is typed, never past a third of the window. Without the
-     ceiling it took whatever height the pane could spare. */
   max-height: min(34vh, 240px);
   resize: none;
-  overflow-y: auto;
   font-size: 15px;
   padding: 10px 12px;
 }
@@ -736,3 +736,5 @@ textarea.ask { min-height: 0; }
 
 .grip.across::after { inset: 4px 0; }
 .grip:hover::after { background: var(--accent); }
+
+.talk { overflow: hidden; }

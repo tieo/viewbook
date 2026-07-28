@@ -82,7 +82,7 @@ while read -r file path hash; do
   done
 done <<'VIEWS'
 index BOOK #/
-view BOOK #/view/index
+view BOOK #/view/table
 table BOOK #/table/endpoints
 sketch BOOK #/sketch/scratch
 books / -
@@ -94,7 +94,7 @@ VIEWS
 echo "rendering the states"
 for theme in light dark; do
   for state in loading empty failed; do
-    for page in "index:#/" "view:#/view/index" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
+    for page in "index:#/" "view:#/view/table" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
       name="${page%%:*}"
       hash="${page#*:}"
       shoot "$name-$state-wide-$theme" "$book" "&showing=$state$hash" 1440 900 "$theme"
@@ -107,8 +107,8 @@ for theme in light dark; do
   # A book whose views have no renders, and a view with a conversation in it.
   shoot "index-bare-wide-$theme" "/bare/" "#/" 1440 900 "$theme"
   shoot "index-bare-tall-$theme" "/bare/" "#/" 430 932 "$theme"
-  shoot "view-talking-wide-$theme" "$book" "#/view/view" 1440 900 "$theme"
-  shoot "view-talking-tall-$theme" "$book" "#/view/view" 430 932 "$theme"
+  shoot "view-talking-wide-$theme" "$book" "#/view/table" 1440 900 "$theme"
+  shoot "view-talking-tall-$theme" "$book" "#/view/table" 430 932 "$theme"
 done
 
 echo "done"

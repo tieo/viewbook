@@ -11,6 +11,11 @@ export const base = location.pathname.replace(/[^/]*$/, "");
 
 async function api(path, options) {
   const response = await fetch(base + path, options);
+  // Redirected to a sign-in page: the session behind the tunnel expired, and
+  // whatever comes back is a login form rather than an answer.
+  if (response.redirected && !response.url.startsWith(location.origin)) {
+    throw new Error("signed out; reload the page to sign in again");
+  }
   if (!response.ok) {
     // The server says what went wrong; a status code says only that something
     // did, which is the least useful half of the answer.
@@ -678,21 +683,8 @@ function Ask({ about, looking, draft, onDraft }) {
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const talk = useRef(null);
-  const box = useRef(null);
 
-  // The composer is as tall as what has been typed, up to a third of the
-  // screen: a fixed box scrolls its own three lines while the page beneath it
-  // stays empty, which is the worst of both.
-  const grow = () => {
-    const field = box.current;
-    if (!field) return;
-    const cap = window.innerHeight * 0.34;
-    field.style.height = "auto";
-    field.style.height = `${Math.min(field.scrollHeight, cap)}px`;
-    // A scrollbar around text that fits is furniture; it appears only at the cap.
-    field.style.overflowY = field.scrollHeight > cap ? "auto" : "hidden";
-  };
-  useEffect(grow, [text]);
+
   // The conversation is there whether or not this page asked the last question,
   // so it is shown on arrival rather than only after sending something.
 
@@ -706,7 +698,7 @@ function Ask({ about, looking, draft, onDraft }) {
     body: JSON.stringify({ text: said }),
   })
     .then(() => {
-      setState("sent to the session");
+      setState("");
       setText("");
       setShots([]);
       setBusy(false);
@@ -725,7 +717,7 @@ function Ask({ about, looking, draft, onDraft }) {
     const message = text.trim();
     if (busy || (!message && shots.length === 0)) return;
     setBusy(true);
-    setState("sending…");
+    setState("");
     // A pasted image is already a file in the project; the conversation is given
     // its path, which is something it can actually open.
     const attached = shots.map((s) => `\n${s.path}`).join("");
@@ -745,7 +737,7 @@ function Ask({ about, looking, draft, onDraft }) {
       .filter((item) => item.type.startsWith("image/"));
     if (images.length === 0) return;
     event.preventDefault();
-    setState("keeping the image…");
+    setState("");
     images.forEach((item) => {
       const file = item.getAsFile();
       if (!file) return;
@@ -755,10 +747,7 @@ function Ask({ about, looking, draft, onDraft }) {
         body: file,
       })
         .then((r) => r.json())
-        .then((kept) => {
-          setShots((now) => [...now, kept]);
-          setState("image kept; it goes with the message");
-        })
+        .then((kept) => setShots((now) => [...now, kept]))
         .catch((error) => setState(`image not kept: ${error.message}`));
     });
   };
@@ -787,11 +776,10 @@ function Ask({ about, looking, draft, onDraft }) {
       <div className="dock-row">
       <textarea
         className="ask"
-        ref={box}
         rows={1}
         value={text}
         placeholder={`Ask about ${about ?? "this"}`}
-        onChange={(e) => { setText(e.target.value); grow(); }}
+        onChange={(e) => setText(e.target.value)}
         onPaste={paste}
         // Enter sends, because this is a message rather than a document.
         // Shift+Enter is the newline.

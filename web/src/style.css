@@ -675,8 +675,16 @@ textarea.ask { min-height: 0; }
 .dock-row {
   display: flex;
   flex: none;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: flex-end;
+}
+
+/* On a phone the box takes the width and what acts on it sits underneath;
+   squeezed onto one row, the buttons went off the edge of the screen. */
+@media (max-width: 640px) {
+  .talk textarea.ask { flex: 1 1 100%; }
+  .dock-row .send { margin-left: auto; }
 }
 
 /* The box is as tall as what is in it. A flex row stretches its children by
@@ -945,3 +953,28 @@ textarea.ask { min-height: 0; }
 
 .page .broken strong { color: var(--broken); font-size: 15px; }
 .page .broken span { color: var(--quiet); font-size: 13px; }
+
+/* Attaching and dictating, for a phone that has no clipboard and no keyboard
+   anybody wants to use. */
+.hidden { display: none; }
+
+.tool-button {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--quiet);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tool-button:hover { border-color: var(--accent); color: var(--accent); }
+.tool-button.on { background: var(--broken); border-color: var(--broken); color: #fff; }
+
+.send:disabled { opacity: 0.55; }
+
+/* Sending goes through a terminal session and takes a moment; silence for a
+   moment reads as nothing happening. */
+.ask-bar span { min-height: 1em; }

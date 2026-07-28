@@ -23,6 +23,14 @@ type Finding struct {
 	Files []string `json:"files"`
 }
 
+// Measured against real books, for whoever tunes this next. Arbay's phone
+// renders are 780 by 5440; a pair of them differing in 12872 pixels is two lines
+// of text and must pass, and its wide pair differing in 8300 of 1290 by 2587
+// must pass too. Free items differing in 65939, and Results in 20156, are
+// different screens and must pass. A copied file, differing in nothing, must be
+// caught. At sixty-four cells the first of those measured as identical, which is
+// the failure this resolution exists to avoid.
+//
 // Findings is what the renders say about themselves.
 //
 //	Nothing is drawn      a render that is one colour is a screen that failed to
@@ -138,7 +146,7 @@ func (s *Server) Findings() []Finding {
 					// character tall does not survive being reduced to a grid of
 					// sixty-four cells.
 					apartBy := differs(thumbs[key], thumbs[other])
-					if apartBy > 0.04 {
+					if apartBy > 0.01 {
 						continue
 					}
 					if apartBy > worst {
@@ -227,19 +235,35 @@ func look(path string) (flat bool, print uint64, thumb []byte, err error) {
 		return false, 0, nil, fmt.Errorf("too small to read")
 	}
 
-	// A difference hash finds candidates cheaply; a small grey copy settles
-	// them. On a sparse screen - a few words on a plain background - hashes of
-	// quite different pictures land within a bit or two of each other, and only
-	// the pixels can say whether the difference is a caption or a whole state.
-	const side = 64
+	// A small grey copy settles what the hash only suggests, and it has to be
+	// big enough to hold a line of text. At sixty-four cells a phone render is
+	// reduced past legibility: two whole lines of difference land inside one
+	// cell and disappear, so pictures that differ by a sentence measure as
+	// identical. Every cell is the average of the block it stands for, rather
+	// than one pixel sampled out of it, so a thin stroke still moves it.
+	const side = 256
 	thumb = make([]byte, side*side)
 	for y := 0; y < side; y++ {
+		fromY := bounds.Min.Y + y*bounds.Dy()/side
+		toY := bounds.Min.Y + (y+1)*bounds.Dy()/side
+		if toY <= fromY {
+			toY = fromY + 1
+		}
 		for x := 0; x < side; x++ {
-			r, g, b, _ := drawn.At(
-				bounds.Min.X+x*bounds.Dx()/side,
-				bounds.Min.Y+y*bounds.Dy()/side,
-			).RGBA()
-			thumb[y*side+x] = byte((0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)) / 257)
+			fromX := bounds.Min.X + x*bounds.Dx()/side
+			toX := bounds.Min.X + (x+1)*bounds.Dx()/side
+			if toX <= fromX {
+				toX = fromX + 1
+			}
+			total, count := 0.0, 0
+			for at := fromY; at < toY; at++ {
+				for across := fromX; across < toX; across++ {
+					r, g, b, _ := drawn.At(across, at).RGBA()
+					total += (0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)) / 257
+					count++
+				}
+			}
+			thumb[y*side+x] = byte(total / float64(count))
 		}
 	}
 
@@ -290,7 +314,10 @@ func differs(one, two []byte) float64 {
 	if len(one) != len(two) || len(one) == 0 {
 		return 1
 	}
-	const apartEnough = 24 // a glyph against its background, not compression noise
+	// Averaged blocks soften every edge, so what counts as a difference is
+	// smaller than a glyph against its background but larger than the noise a
+	// renderer leaves behind.
+	const apartEnough = 6
 
 	ink := 0
 	for _, grey := range []([]byte){one, two} {

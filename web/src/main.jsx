@@ -917,6 +917,9 @@ function Ask({ about, looking, draft, onDraft, forced }) {
   const [running, setRunning] = useState(true);
   const [canWake, setCanWake] = useState(false);
   const talk = useRef(null);
+  const ears = useRef(null);
+  const picker = useRef(null);
+  const [hearing, setHearing] = useState(false);
 
 
   // The conversation is there whether or not this page asked the last question,
@@ -936,10 +939,12 @@ function Ask({ about, looking, draft, onDraft, forced }) {
       setText("");
       setShots([]);
       setBusy(false);
+      setState("sent");
+      setTimeout(() => setState((now) => (now === "sent" ? "" : now)), 2500);
     })
     .catch((error) => {
       if (tries > 0 && /could not type|busy/i.test(error.message)) {
-        setState("the session is busy, trying again…");
+        setState("the session is busy, trying again in a moment");
         setTimeout(() => sendOnce(said, tries - 1), 4000);
         return;
       }
@@ -951,7 +956,7 @@ function Ask({ about, looking, draft, onDraft, forced }) {
     const message = text.trim();
     if (busy || (!message && shots.length === 0)) return;
     setBusy(true);
-    setState("");
+    setState("sending it to the session");
     // A pasted image is already a file in the project; the conversation is given
     // its path, which is something it can actually open.
     const attached = shots.map((s) => `\n${s.path}`).join("");
@@ -966,24 +971,53 @@ function Ask({ about, looking, draft, onDraft, forced }) {
     sendOnce(said, 3);
   };
 
+  const keep = (file) => {
+    if (!file) return;
+    setState("keeping the image");
+    fetch(base + "api/paste", {
+      method: "POST",
+      headers: { "Content-Type": file.type || "image/png" },
+      body: file,
+    })
+      .then((r) => r.json())
+      .then((kept) => { setShots((now) => [...now, kept]); setState(""); })
+      .catch((error) => setState(`image not kept: ${error.message}`));
+  };
+
   const paste = (event) => {
     const images = [...(event.clipboardData?.items ?? [])]
       .filter((item) => item.type.startsWith("image/"));
     if (images.length === 0) return;
     event.preventDefault();
-    setState("");
-    images.forEach((item) => {
-      const file = item.getAsFile();
-      if (!file) return;
-      fetch(base + "api/paste", {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      })
-        .then((r) => r.json())
-        .then((kept) => setShots((now) => [...now, kept]))
-        .catch((error) => setState(`image not kept: ${error.message}`));
-    });
+    images.forEach((item) => keep(item.getAsFile()));
+  };
+
+  // Dictation, where the browser has it. A phone in one hand is a keyboard
+  // nobody wants to use, and the words are put in the box rather than sent, so
+  // what was heard can be read before it goes.
+  const hears = typeof window !== "undefined" &&
+    (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const listen = () => {
+    if (!hears) return;
+    if (ears.current) {
+      ears.current.stop();
+      return;
+    }
+    const heard = new hears();
+    heard.lang = navigator.language || "en-US";
+    heard.interimResults = true;
+    heard.continuous = true;
+    const before = text;
+    heard.onresult = (event) => {
+      let said = "";
+      for (let i = 0; i < event.results.length; i++) said += event.results[i][0].transcript;
+      setText((before ? before.trimEnd() + " " : "") + said.trim());
+    };
+    heard.onerror = (event) => setState(`microphone: ${event.error}`);
+    heard.onend = () => { ears.current = null; setHearing(false); };
+    heard.start();
+    ears.current = heard;
+    setHearing(true);
   };
 
   // The newest line is the one being waited for, so the pane stays at its end.
@@ -1051,12 +1085,32 @@ function Ask({ about, looking, draft, onDraft, forced }) {
           }
         }}
       />
+        <input
+          ref={picker}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => { [...e.target.files].forEach(keep); e.target.value = ""; }}
+        />
+        <button className="tool-button" title="attach a picture" onClick={() => picker.current?.click()}>
+          Image
+        </button>
+        {hears && (
+          <button
+            className={`tool-button ${hearing ? "on" : ""}`}
+            title={hearing ? "stop listening" : "dictate"}
+            onClick={listen}
+          >
+            {hearing ? "Listening" : "Speak"}
+          </button>
+        )}
         <button
           className="send"
           onClick={send}
           disabled={busy || (!text.trim() && shots.length === 0)}
         >
-          Send
+          {busy ? "Sending" : "Send"}
         </button>
       </div>
       <div className="ask-bar">

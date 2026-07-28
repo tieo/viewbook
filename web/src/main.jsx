@@ -486,6 +486,19 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
           ))}
         </div>
       )}
+      {check.findings?.length > 0 && (
+        <div className="findings">
+          <h3>What the renders say</h3>
+          <ul>
+            {check.findings.map((one) => (
+              <li key={one.what}>
+                <strong>{one.what}</strong>
+                <p>{one.why}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {check.hints?.length > 0 && (
         <div className="trouble hints">
           {check.hints.map((one) => <p key={one}><strong>{one}</strong></p>)}

@@ -74,6 +74,21 @@ A screen is full and it is empty, it is loading and it has failed, it is permitt
 book that shows only the happy state lies by omission, and the lie is invisible: a missing empty
 state looks exactly like one that cannot happen.
 
+Nothing is required of a view by default. A checklist of Loading, Empty and Failed reported gaps on
+screens that have none, and missed every bug anyone actually hit, because the states that matter are
+the ones nobody thought to name. What is enforced instead is enforced on the pictures, and needs no
+list:
+
+- **Nothing is drawn.** A render that is one colour is a screen that drew nothing.
+- **Two states, one picture.** Two renders of the same view, meant to be different states, that look
+  the same. Either those are one state, or the screen does not tell them apart, which is what its
+  reader will not be able to do either.
+
+Both are reported by `viewbook --gaps` and on the index, without anybody predicting anything. On the
+first run across four books they found: a filter panel that renders identically whether its data has
+arrived or not, two commands whose empty output is their normal output, and a canvas that renders
+blank while it loads.
+
 A state is an entry in `model.json` related to its view by `State of`, and it carries renders of its
 own. `viewbook.json` names the states every view is expected to have:
 

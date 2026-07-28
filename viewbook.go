@@ -65,10 +65,12 @@ type Config struct {
 	Subtitle string   `json:"subtitle"`
 	Tables   []Table  `json:"tables"`
 	Renders  *Renders `json:"renders,omitempty"`
-	// States every view is expected to have a render of. A screen is not one
-	// picture: it is full and empty, loading and failed, permitted and refused.
-	// Naming them here makes the ones nobody has drawn visible as gaps instead
-	// of leaving a book that shows only the happy one.
+	// States every view is expected to have a render of, when a project wants a
+	// list of its own. Nothing is required by default: a checklist of Loading,
+	// Empty and Failed reported gaps on screens that have none and missed every
+	// bug anybody actually hit, because the states that matter are the ones
+	// nobody thought to name. What is enforced without being named is in
+	// checks.go.
 	States []string `json:"states,omitempty"`
 	// Shapes every render is expected to come in. A phone app is upright and
 	// wide; a command-line program is one shape, a terminal, and asking it for
@@ -205,12 +207,6 @@ func (s *Server) config() Config {
 	}
 	if cfg.Tables == nil {
 		cfg.Tables = []Table{}
-	}
-	// A project that names no states has not decided it has none; it has not
-	// thought about them. These three are what every screen does whatever it is
-	// for: it waits, it has nothing to show, and it fails.
-	if cfg.States == nil {
-		cfg.States = []string{"Loading", "Empty", "Failed"}
 	}
 	return cfg
 }
@@ -492,9 +488,10 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"trouble": trouble,
-		"gaps":    s.Gaps(),
-		"hints":   s.hints(),
+		"trouble":  trouble,
+		"gaps":     s.Gaps(),
+		"hints":    s.hints(),
+		"findings": s.Findings(),
 	})
 }
 

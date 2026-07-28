@@ -908,3 +908,18 @@ textarea.ask { min-height: 0; }
 .asking { margin: 0 0 26px; }
 .asking .talk { height: auto; }
 .asking .reply { max-height: 200px; }
+
+/* What the pictures say about themselves, which nobody had to predict. */
+.findings { margin: 0 0 20px; }
+.findings h3 { margin-bottom: 8px; }
+.findings ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.findings li {
+  border: 1px solid var(--broken);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 10px 13px;
+}
+
+.findings strong { font-size: 13.5px; color: var(--broken); }
+.findings p { margin: 3px 0 0; font-size: 12.5px; color: var(--quiet); line-height: 1.5; }

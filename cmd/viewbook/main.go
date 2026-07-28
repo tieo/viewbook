@@ -97,6 +97,12 @@ Next:
 			if said := viewbook.Said(missing); said != "" {
 				fmt.Print(said)
 			}
+			// What the pictures say about themselves, which nobody had to
+			// predict: a render with nothing on it, two states that look the
+			// same. Reported, not gated: they are worth a look, not a failure.
+			for _, finding := range server.Findings() {
+				fmt.Printf("%s\n  %s\n", finding.What, finding.Why)
+			}
 		}
 		if found > 0 {
 			fmt.Fprintf(os.Stderr, "%d states nothing renders\n", found)

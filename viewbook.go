@@ -130,12 +130,22 @@ func (s *Server) Handler(prefix string) http.Handler {
 			http.Redirect(w, r, prefix, http.StatusMovedPermanently)
 			return
 		}
-		// Anything that is not a file is the interface itself, so reloading
-		// /name/#/view/results works rather than 404ing.
+		// Anything that is not a file is the interface itself, so /name/view/results
+		// is a page rather than a 404. It is served with a base tag naming where
+		// this book is mounted: without one, a page two segments deep looks for
+		// its own scripts two segments deep and finds nothing.
 		within := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, strings.TrimSuffix(prefix, "/")), "/")
 		if _, err := fs.Stat(built, within); err != nil || within == "" {
-			r = r.Clone(r.Context())
-			r.URL.Path = prefix
+			page, err := fs.ReadFile(built, "index.html")
+			if err != nil {
+				http.Error(w, "no interface", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			_, _ = w.Write([]byte(strings.Replace(string(page), "<head>",
+				`<head><base href="`+prefix+`">`, 1)))
+			return
 		}
 		files.ServeHTTP(w, r)
 	})

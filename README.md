@@ -103,6 +103,18 @@ modelling, or what language that app is written in.
 
 ## Programs without screens
 
+A book for a command-line program is the same book with a different vocabulary.
+Its **views** are what someone looks at: the list a command prints, the screen a
+TUI draws, a report. Its **states** are the conditions that output has: nothing
+configured yet, nothing found, the thing it talks to is down. Its **shapes** are
+terminal widths, not devices:
+
+    "shapes": ["wide", "narrow"]          # 120 and 56 columns, say
+    "states": ["Empty", "Failed"]         # a list that prints nothing, and one that cannot
+
+proj models itself this way: five views, ten states, sixty renders taken by
+running the real binary against a fabricated home and photographing its output.
+
 A command-line program has one shape, a terminal, and asking it for an upright
 render and a wide one would be asking it to lie. A book says which shapes its
 screens come in, and is held to those and no others:

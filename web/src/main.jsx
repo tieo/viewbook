@@ -6,8 +6,12 @@ import { Sketch } from "./Sketch.jsx";
 
 const SAVE_AFTER_IDLE_MS = 800;
 
-/** Where this book is mounted: "/" when it is alone, "/arbay/" when it is one of several. */
-export const base = location.pathname.replace(/[^/]*$/, "");
+/**
+ * Where this book is mounted: "/" when it is alone, "/arbay/" when it is one of
+ * several. The server says so with a base tag, because the page's own address
+ * cannot: /arbay/view/results is two segments deep and the book is not.
+ */
+export const base = new URL(document.baseURI).pathname;
 
 async function api(path, options) {
   const response = await fetch(base + path, options);
@@ -30,15 +34,50 @@ async function api(path, options) {
   return response.json();
 }
 
-/** The hash is the address: #/ , #/view/results , #/sketch/results , #/markets . */
+/**
+ * The address is a path: /arbay/view/results, /arbay/table/markets, /arbay/.
+ *
+ * A view nobody can link to cannot be sent to anyone, which is a strange thing
+ * for a page whose point is that two people look at the same screen. The old
+ * hash form still works and is rewritten, so links already sent keep working.
+ */
 function useRoute() {
-  const [route, setRoute] = useState(() => location.hash.slice(2) || "");
+  const read = () => {
+    const hash = location.hash.replace(/^#\/?/, "");
+    if (hash) return hash;
+    return location.pathname.slice(base.length);
+  };
+  const [route, setRoute] = useState(read);
   useEffect(() => {
-    const follow = () => setRoute(location.hash.slice(2) || "");
+    const follow = () => setRoute(read());
     window.addEventListener("hashchange", follow);
-    return () => window.removeEventListener("hashchange", follow);
+    window.addEventListener("popstate", follow);
+    // A hash link is turned into a path so what is copied out of the bar is a
+    // link somebody else can open.
+    if (location.hash) {
+      const where = location.hash.replace(/^#\/?/, "");
+      history.replaceState(null, "", base + where + location.search);
+      setRoute(where);
+    }
+    return () => {
+      window.removeEventListener("hashchange", follow);
+      window.removeEventListener("popstate", follow);
+    };
   }, []);
   return route;
+}
+
+/** Going somewhere in this book, as a link that can be copied and sent. */
+function go(where) {
+  return {
+    href: base + where,
+    onClick: (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      history.pushState(null, "", base + where + location.search);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    },
+  };
 }
 
 /** Whether the window has room to show every shape of a screen side by side. */
@@ -195,16 +234,26 @@ function App() {
     }, SAVE_AFTER_IDLE_MS);
   }, []);
 
-  if (forced === "loading") return <div className="loading">Reading the model…</div>;
+  const skeleton = (said) => (
+    <div className="shell">
+      <header className="bar">
+        <span className="brand">
+          <a className="tool" href="/">Viewbook</a>
+          {config?.title && config.title.toLowerCase() !== "viewbook" && (
+            <span className="book">{config.title}</span>
+          )}
+        </span>
+        <nav className="tabs" />
+      </header>
+      <main><div className="page"><p className="hint">{said}</p></div></main>
+    </div>
+  );
+
+  if (forced === "loading") return skeleton("Reading the model…");
   if (forced === "failed" || (broken && (!model || !config))) {
-    return (
-      <div className="loading broken">
-        <p>This book&rsquo;s model could not be read.</p>
-        <p className="why">{broken || "model.json is not there, or is not a model"}</p>
-      </div>
-    );
+    return skeleton(`This book's model could not be read. ${broken || "model.json is not there, or is not a model"}`);
   }
-  if (!model || !config) return <div className="loading">Reading the model…</div>;
+  if (!model || !config) return skeleton("Reading the model…");
 
   const views = forced === "empty" ? [] : model.views;
   const [section, argument] = route.split("/");
@@ -239,6 +288,8 @@ function App() {
         renders={renders}
         theme={theme.showing}
         required={config.states}
+        draft={drafts.book ?? ""}
+        onDraft={(text) => setDrafts((was) => ({ ...was, book: text }))}
       />
     );
   }
@@ -261,13 +312,13 @@ function App() {
           )}
         </span>
         <nav className="tabs">
-          <a className={route === "" ? "on" : ""} href="#/">Overview</a>
+          <a className={route === "" ? "on" : ""} {...go("")}>Overview</a>
           <span className="divider" aria-hidden="true" />
           {views.map((view) => (
             <a
               key={view.uid}
               className={section === "view" && argument === slug(view.uid) ? "on" : ""}
-              href={`#/view/${slug(view.uid)}`}
+              {...go(`view/${slug(view.uid)}`)}
             >
               {view.title}
               {view.status === "Missing" && <span className="dot" title="not built" />}
@@ -278,14 +329,14 @@ function App() {
             <a
               key={table.name}
               className={`table-tab ${section === "table" && argument === table.name ? "on" : ""}`}
-              href={`#/table/${table.name}`}
+              {...go(`table/${table.name}`)}
             >
               {table.title}
             </a>
           ))}
         </nav>
         {renders.running && (
-          <a className="running" href="#/" title="the renders are being made">making renders</a>
+          <a className="running" {...go("")} title="the renders are being made">making renders</a>
         )}
         <span className="state">{saved}</span>
         <button
@@ -390,7 +441,6 @@ function rendersOf(view) {
 
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
 function Thumb({ view, stamp, theme }) {
-  const [shape, setShape] = useState("portrait");
   const [gone, setGone] = useState(false);
   const shots = rendersOf(view);
   useEffect(() => setGone(false), [view.uid]);
@@ -399,16 +449,14 @@ function Thumb({ view, stamp, theme }) {
   return (
     <img
       onError={() => setGone(true)}
-      className={shape}
       src={`${base}img/card/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
       alt={view.title}
       loading="lazy"
-      onLoad={(e) => setShape(e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait")}
     />
   );
 }
 
-function IndexPage({ views, model, stamp, renders, theme, required }) {
+function IndexPage({ views, model, stamp, renders, theme, required, draft, onDraft }) {
   const check = useCheck(stamp);
   const open = model.requirements.filter((r) => r.status !== "Built");
   const gaps = views.reduce(
@@ -419,9 +467,12 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
         <div>
           <h1>Every view</h1>
           <p>
-            {views.length} views · {model.requirements.length} requirements ·{" "}
-            {open.length === 0 ? "all built" : `${open.length} not built`}
-            {gaps > 0 && <> · <span className="gapcount">{gaps} states with no render</span></>}
+            {views.length} views · {model.states.length} states ·{" "}
+            {model.requirements.length} requirements ·{" "}
+            {open.length === 0 ? "all built" : `${open.length} not built`} ·{" "}
+            {gaps > 0
+              ? <span className="gapcount">{gaps} states with no render</span>
+              : "every state rendered"}
           </p>
         </div>
       </header>
@@ -453,11 +504,16 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
           to do, and what it looks like today.
         </p>
       )}
+      <section className="asking">
+        <h3>Ask the session working on this project</h3>
+        <Ask about={null} draft={draft} onDraft={onDraft} />
+      </section>
+
       <div className="grid">
         {views.map((view) => {
           const own = requirementsOf(model, view.uid);
           return (
-            <a className="card" key={view.uid} href={`#/view/${slug(view.uid)}`}>
+            <a className="card" key={view.uid} {...go(`view/${slug(view.uid)}`)}>
               <div className="shot">
                 <Thumb view={view} stamp={stamp} theme={theme} />
               </div>
@@ -479,9 +535,43 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
           );
         })}
       </div>
+      <Stories model={model} views={views} />
       <RenderRun renders={renders} />
       <SketchBox />
     </div>
+  );
+}
+
+/**
+ * What the app is for, and which screens serve each one.
+ *
+ * A story is the reason a requirement exists. Left off the page, the
+ * requirements read as a checklist nobody can argue with.
+ */
+function Stories({ model, views }) {
+  const stories = model.stories ?? [];
+  if (stories.length === 0) return null;
+  const serving = (story) => views.filter((view) =>
+    (view.relations ?? []).some((r) => r.to === story.uid) ||
+    (story.relations ?? []).some((r) => r.to === view.uid));
+
+  return (
+    <section className="stories">
+      <h3>What it is for</h3>
+      <ul>
+        {stories.map((story) => (
+          <li key={story.uid}>
+            <strong>{story.title}</strong>
+            {story.statement && <p>{story.statement}</p>}
+            <div className="counts">
+              {serving(story).map((view) => (
+                <a className="pill" key={view.uid} {...go(`view/${slug(view.uid)}`)}>{view.title}</a>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -535,7 +625,10 @@ function SketchBox() {
 
   const start = () => {
     const called = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    if (called) location.hash = `#/sketch/${called}`;
+    if (called) {
+      history.pushState(null, "", base + `sketch/${called}` + location.search);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
   };
 
   return (
@@ -543,7 +636,7 @@ function SketchBox() {
       <h3>Sketches</h3>
       <div className="sketch-row">
         {drawn.map((one) => (
-          <a className="button" key={one} href={`#/sketch/${one}`}>{one}</a>
+          <a className="button" key={one} {...go(`sketch/${one}`)}>{one}</a>
         ))}
         <input
           value={name}

@@ -274,9 +274,16 @@ main {
   justify-content: center;
 }
 
-.shot img { width: 100%; height: 100%; display: block; }
-.shot img.portrait { object-fit: cover; object-position: top; }
-.shot img.landscape { object-fit: contain; }
+/* The first lines of the render, whatever shape it is. Fitting a 120-column
+   terminal into a card turns it into an invisible strip, which reads as a
+   broken render rather than as a wide one. */
+.shot img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top left;
+}
 
 .noshot {
   color: var(--quiet);
@@ -879,3 +886,25 @@ textarea.ask { min-height: 0; }
 .trouble.hints { border-color: var(--missing); }
 .trouble.hints strong { color: var(--missing); font-weight: 400; }
 .trouble span { color: var(--quiet); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+/* ── What the app is for ─────────────────────────────── */
+
+.stories { margin-top: 34px; }
+.stories ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+
+.stories li {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.stories strong { font-size: 14px; }
+.stories p { margin: 4px 0 8px; font-size: 13px; color: var(--quiet); line-height: 1.5; }
+.stories .pill { border-color: var(--line); color: var(--quiet); }
+.stories .pill:hover { border-color: var(--accent); color: var(--accent); }
+
+/* The box that talks to the session, on the page someone lands on. */
+.asking { margin: 0 0 26px; }
+.asking .talk { height: auto; }
+.asking .reply { max-height: 200px; }

@@ -25,10 +25,11 @@ func Start(dir, title string) error {
 	// promises a button that fails the first time it is pressed. What draws this
 	// project's screens is the project's to connect, and the next-steps text
 	// says how.
-	config := map[string]any{
-		"title":  title,
-		"states": []string{"Loading", "Empty", "Failed"},
-	}
+	// No states are required of a view, and no shapes. A list of states asks
+	// somebody to predict which ones matter, which is the thing nobody can do;
+	// what the renders themselves say is checked without a list. A book that
+	// does want a list of its own adds one.
+	config := map[string]any{"title": title}
 	model := map[string]any{
 		"views": []any{map[string]any{
 			"tag":       "VIEW",

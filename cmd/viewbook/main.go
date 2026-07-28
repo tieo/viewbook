@@ -73,7 +73,14 @@ Next:
      {"file": "home-phone-dark.png", "label": "phone dark"}.
   4. Say what draws them, and the page gets a button that runs it:
      "renders": {"command": ["./make-renders.sh"], "dir": "../.."}
-     A command-line program says so too: "shapes": ["terminal"]
+
+Nothing is required of a view. What every render is checked for, without any
+list: that something is drawn on it, and that two states of one view are not the
+same picture. A book that wants more can ask for it:
+
+  "states": ["Loading", "Empty", "Failed"]    of every view, unless a view says otherwise
+  "shapes": ["phone", "wide"]                 of every render; a terminal has one, an
+                                              extension popup has one
 
   viewbook --gaps %s   what is still missing
   viewbook %s          read it

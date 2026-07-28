@@ -48,14 +48,16 @@ key="$(cat "$work/key")"
 # A fresh profile per shot: chromium reuses a running instance otherwise and
 # writes nothing. --static keeps the page from holding a stream open, which is
 # what the screenshot tool waits on.
+# Every screen is drawn twice, once in each theme, because a page read in the
+# dark should not be illustrated with a picture of the light one.
 shoot() {
-  local file=$1 path=$2 hash=$3 width=$4 height=$5
+  local file=$1 path=$2 hash=$3 width=$4 height=$5 theme=${6:-}
   chromium --headless --disable-gpu --no-sandbox \
     --user-data-dir="$work/profile-$file" \
     --virtual-time-budget=7000 --run-all-compositor-stages-before-draw \
     --window-size="$width,$height" \
     --screenshot="$work/$file.png" \
-    "http://127.0.0.1:$port$path?key=$key&static=1$hash" >/dev/null 2>&1 || true
+    "http://127.0.0.1:$port$path?key=$key&static=1${theme:+&theme=$theme}$hash" >/dev/null 2>&1 || true
   if [ -s "$work/$file.png" ]; then
     mv "$work/$file.png" "$here/img/$file.png"
     echo "  $file"
@@ -69,13 +71,15 @@ shoot() {
 # docs/model.
 book="/$(basename "$(dirname "$(dirname "$here")")" | tr '[:upper:]' '[:lower:]')/"
 
-echo "rendering viewbook, in both shapes"
+echo "rendering viewbook, in both shapes and both themes"
 while read -r file path hash; do
   [ -z "$file" ] && continue
   [ "$path" = "BOOK" ] && path="$book"
   [ "$hash" = "-" ] && hash=""
-  shoot "$file-wide" "$path" "$hash" 1440 900
-  shoot "$file-tall" "$path" "$hash" 430 932
+  for theme in light dark; do
+    shoot "$file-wide-$theme" "$path" "$hash" 1440 900 "$theme"
+    shoot "$file-tall-$theme" "$path" "$hash" 430 932 "$theme"
+  done
 done <<'VIEWS'
 index BOOK #/
 view BOOK #/view/index
@@ -88,22 +92,23 @@ VIEWS
 # can be photographed: waiting for the model, holding nothing, and failing to
 # read it. A book that demands these of every project draws its own.
 echo "rendering the states"
-for state in loading empty failed; do
-  for page in "index:#/" "view:#/view/index" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
-    name="${page%%:*}"
-    hash="${page#*:}"
-    shoot "$name-$state-wide" "$book" "&showing=$state$hash" 1440 900
-    shoot "$name-$state-tall" "$book" "&showing=$state$hash" 430 932
+for theme in light dark; do
+  for state in loading empty failed; do
+    for page in "index:#/" "view:#/view/index" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
+      name="${page%%:*}"
+      hash="${page#*:}"
+      shoot "$name-$state-wide-$theme" "$book" "&showing=$state$hash" 1440 900 "$theme"
+      shoot "$name-$state-tall-$theme" "$book" "&showing=$state$hash" 430 932 "$theme"
+    done
+    shoot "books-$state-wide-$theme" "/" "&showing=$state" 1440 900 "$theme"
+    shoot "books-$state-tall-$theme" "/" "&showing=$state" 430 932 "$theme"
   done
-  shoot "books-$state-wide" "/" "&showing=$state" 1440 900
-  shoot "books-$state-tall" "/" "&showing=$state" 430 932
-done
 
-# A book whose views have no renders, and a view whose conversation is running.
-bare="/bare/"
-shoot "index-bare-wide" "$bare" "#/" 1440 900
-shoot "index-bare-tall" "$bare" "#/" 430 932
-shoot "view-talking-wide" "$book" "#/view/view" 1440 900
-shoot "view-talking-tall" "$book" "#/view/view" 430 932
+  # A book whose views have no renders, and a view with a conversation in it.
+  shoot "index-bare-wide-$theme" "/bare/" "#/" 1440 900 "$theme"
+  shoot "index-bare-tall-$theme" "/bare/" "#/" 430 932 "$theme"
+  shoot "view-talking-wide-$theme" "$book" "#/view/view" 1440 900 "$theme"
+  shoot "view-talking-tall-$theme" "$book" "#/view/view" 430 932 "$theme"
+done
 
 echo "done"

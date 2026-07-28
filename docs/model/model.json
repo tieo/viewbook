@@ -9,12 +9,20 @@
       "status": "Built",
       "renders": [
         {
-          "file": "index-wide.png",
-          "label": "wide"
+          "file": "index-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "index-tall.png",
-          "label": "upright"
+          "file": "index-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "index-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "index-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -27,12 +35,20 @@
       "status": "Built",
       "renders": [
         {
-          "file": "view-wide.png",
-          "label": "wide"
+          "file": "view-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-tall.png",
-          "label": "upright"
+          "file": "view-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -45,12 +61,20 @@
       "status": "Built",
       "renders": [
         {
-          "file": "table-wide.png",
-          "label": "wide"
+          "file": "table-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "table-tall.png",
-          "label": "upright"
+          "file": "table-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "table-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "table-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -63,12 +87,20 @@
       "status": "Built",
       "renders": [
         {
-          "file": "sketch-wide.png",
-          "label": "wide"
+          "file": "sketch-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "sketch-tall.png",
-          "label": "upright"
+          "file": "sketch-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "sketch-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "sketch-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -76,17 +108,25 @@
       "tag": "VIEW",
       "relations": [],
       "uid": "VIEW-BOOKS",
-      "title": "All books",
+      "title": "The list of books",
       "statement": "List the projects being modelled, when more than one is served.",
       "status": "Built",
       "renders": [
         {
-          "file": "books-wide.png",
-          "label": "wide"
+          "file": "books-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "books-tall.png",
-          "label": "upright"
+          "file": "books-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "books-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "books-tall-dark.png",
+          "label": "upright dark"
         }
       ],
       "notes": ""
@@ -96,8 +136,8 @@
     {
       "tag": "STATE",
       "uid": "STATE-INDEX-EMPTY",
-      "title": "Nothing renders yet",
-      "statement": "A project with no screenshots in img/ shows cards that say so rather than blanks.",
+      "title": "Views without renders",
+      "statement": "The book models views, but nothing has drawn them yet.",
       "relations": [
         {
           "to": "VIEW-INDEX",
@@ -106,20 +146,28 @@
       ],
       "renders": [
         {
-          "file": "index-bare-wide.png",
-          "label": "wide"
+          "file": "index-bare-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "index-bare-tall.png",
-          "label": "upright"
+          "file": "index-bare-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "index-bare-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "index-bare-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
     {
       "tag": "STATE",
       "uid": "STATE-VIEW-FOLLOWING",
-      "title": "Following the session",
-      "statement": "The conversation is polled and shown under the ask box.",
+      "title": "With a conversation",
+      "statement": "The session has said something, and the page is showing it.",
       "relations": [
         {
           "to": "VIEW-VIEW",
@@ -128,20 +176,28 @@
       ],
       "renders": [
         {
-          "file": "view-talking-wide.png",
-          "label": "wide"
+          "file": "view-talking-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-talking-tall.png",
-          "label": "upright"
+          "file": "view-talking-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-talking-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-talking-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
     {
       "tag": "STATE",
       "uid": "STATE-VIEW-NOSESSION",
-      "title": "Nowhere to say it",
-      "statement": "No session is running, so asking says so instead of silently dropping the message.",
+      "title": "No session running",
+      "statement": "Nothing is working on this project right now, so there is nothing to show and nowhere to send a question.",
       "relations": [
         {
           "to": "VIEW-VIEW",
@@ -150,12 +206,20 @@
       ],
       "renders": [
         {
-          "file": "view-wide.png",
-          "label": "wide"
+          "file": "view-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-tall.png",
-          "label": "upright"
+          "file": "view-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -172,12 +236,20 @@
       ],
       "renders": [
         {
-          "file": "index-loading-wide.png",
-          "label": "wide"
+          "file": "index-loading-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "index-loading-tall.png",
-          "label": "upright"
+          "file": "index-loading-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "index-loading-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "index-loading-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -194,12 +266,20 @@
       ],
       "renders": [
         {
-          "file": "index-failed-wide.png",
-          "label": "wide"
+          "file": "index-failed-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "index-failed-tall.png",
-          "label": "upright"
+          "file": "index-failed-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "index-failed-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "index-failed-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -216,12 +296,20 @@
       ],
       "renders": [
         {
-          "file": "view-loading-wide.png",
-          "label": "wide"
+          "file": "view-loading-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-loading-tall.png",
-          "label": "upright"
+          "file": "view-loading-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-loading-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-loading-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -238,12 +326,20 @@
       ],
       "renders": [
         {
-          "file": "view-empty-wide.png",
-          "label": "wide"
+          "file": "view-empty-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-empty-tall.png",
-          "label": "upright"
+          "file": "view-empty-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-empty-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-empty-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -260,12 +356,20 @@
       ],
       "renders": [
         {
-          "file": "view-failed-wide.png",
-          "label": "wide"
+          "file": "view-failed-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "view-failed-tall.png",
-          "label": "upright"
+          "file": "view-failed-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-failed-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-failed-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -282,12 +386,20 @@
       ],
       "renders": [
         {
-          "file": "index-empty-wide.png",
-          "label": "wide"
+          "file": "index-empty-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "index-empty-tall.png",
-          "label": "upright"
+          "file": "index-empty-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "index-empty-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "index-empty-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -304,12 +416,20 @@
       ],
       "renders": [
         {
-          "file": "table-loading-wide.png",
-          "label": "wide"
+          "file": "table-loading-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "table-loading-tall.png",
-          "label": "upright"
+          "file": "table-loading-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "table-loading-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "table-loading-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -326,12 +446,20 @@
       ],
       "renders": [
         {
-          "file": "table-empty-wide.png",
-          "label": "wide"
+          "file": "table-empty-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "table-empty-tall.png",
-          "label": "upright"
+          "file": "table-empty-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "table-empty-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "table-empty-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -348,12 +476,20 @@
       ],
       "renders": [
         {
-          "file": "table-failed-wide.png",
-          "label": "wide"
+          "file": "table-failed-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "table-failed-tall.png",
-          "label": "upright"
+          "file": "table-failed-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "table-failed-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "table-failed-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -370,12 +506,20 @@
       ],
       "renders": [
         {
-          "file": "sketch-loading-wide.png",
-          "label": "wide"
+          "file": "sketch-loading-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "sketch-loading-tall.png",
-          "label": "upright"
+          "file": "sketch-loading-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "sketch-loading-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "sketch-loading-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -392,12 +536,20 @@
       ],
       "renders": [
         {
-          "file": "sketch-empty-wide.png",
-          "label": "wide"
+          "file": "sketch-empty-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "sketch-empty-tall.png",
-          "label": "upright"
+          "file": "sketch-empty-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "sketch-empty-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "sketch-empty-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -414,12 +566,20 @@
       ],
       "renders": [
         {
-          "file": "sketch-failed-wide.png",
-          "label": "wide"
+          "file": "sketch-failed-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "sketch-failed-tall.png",
-          "label": "upright"
+          "file": "sketch-failed-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "sketch-failed-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "sketch-failed-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -436,12 +596,20 @@
       ],
       "renders": [
         {
-          "file": "books-loading-wide.png",
-          "label": "wide"
+          "file": "books-loading-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "books-loading-tall.png",
-          "label": "upright"
+          "file": "books-loading-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "books-loading-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "books-loading-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -458,12 +626,20 @@
       ],
       "renders": [
         {
-          "file": "books-empty-wide.png",
-          "label": "wide"
+          "file": "books-empty-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "books-empty-tall.png",
-          "label": "upright"
+          "file": "books-empty-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "books-empty-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "books-empty-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     },
@@ -480,12 +656,20 @@
       ],
       "renders": [
         {
-          "file": "books-failed-wide.png",
-          "label": "wide"
+          "file": "books-failed-wide-light.png",
+          "label": "wide light"
         },
         {
-          "file": "books-failed-tall.png",
-          "label": "upright"
+          "file": "books-failed-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "books-failed-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "books-failed-tall-dark.png",
+          "label": "upright dark"
         }
       ]
     }

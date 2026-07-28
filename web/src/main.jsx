@@ -35,6 +35,19 @@ function useRoute() {
   return route;
 }
 
+/** Whether the window has room to show every shape of a screen side by side. */
+function useRoomy() {
+  const query = "(min-width: 1000px) and (orientation: landscape)";
+  const [roomy, setRoomy] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const watch = window.matchMedia(query);
+    const follow = () => setRoomy(watch.matches);
+    watch.addEventListener("change", follow);
+    return () => watch.removeEventListener("change", follow);
+  }, []);
+  return roomy;
+}
+
 const slug = (uid) => uid.replace(/^VIEW-/, "").toLowerCase();
 const statusClass = (status) => `pill ${status.toLowerCase()}`;
 
@@ -45,7 +58,10 @@ const statusClass = (status) => `pill ${status.toLowerCase()}`;
  * stays dark without being asked.
  */
 function useTheme() {
-  const [chosen, setChosen] = useState(() => localStorage.getItem("viewbook.theme") || "");
+  // ?theme=light or dark holds the page in one, which is how a project renders
+  // both looks of the same screen.
+  const asked = new URLSearchParams(location.search).get("theme") || "";
+  const [chosen, setChosen] = useState(() => asked || localStorage.getItem("viewbook.theme") || "");
   const screen = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   const showing = chosen || screen;
 
@@ -95,6 +111,9 @@ function App() {
   // This changes with them, so what is on screen is what is on disk.
   const [stamp, setStamp] = useState(0);
   const [broken, setBroken] = useState("");
+  // What is half-typed survives a change of view. It is a draft, and the only
+  // thing that sends it is sending it.
+  const [drafts, setDrafts] = useState({});
   // A screenshot of a state needs the state to happen on demand. This is how
   // viewbook renders its own: ?showing=loading, empty or failed.
   const forced = new URLSearchParams(location.search).get("showing") || "";
@@ -181,6 +200,8 @@ function App() {
           stamp={stamp}
           theme={theme.showing}
           required={config.states}
+          draft={drafts[view.uid] ?? ""}
+          onDraft={(text) => setDrafts((was) => ({ ...was, [view.uid]: text }))}
         />
       : <NoSuchView />;
   } else if (section === "sketch") {
@@ -211,11 +232,16 @@ function App() {
     <div className="shell">
       <header className="bar">
         <span className="brand">
-          {/* A book named after the tool is not named twice. */}
-          {config.title.toLowerCase() !== "viewbook" && <span className="tool">Viewbook</span>}
-          <a className={`book ${route === "" ? "on" : ""}`} href="#/">{config.title}</a>
+          {/* Viewbook is the tool and leads to every book it serves. A book
+              named after it is not named twice. */}
+          <a className="tool" href="/">Viewbook</a>
+          {config.title.toLowerCase() !== "viewbook" && (
+            <span className="book">{config.title}</span>
+          )}
         </span>
         <nav className="tabs">
+          <a className={route === "" ? "on" : ""} href="#/">Overview</a>
+          <span className="divider" aria-hidden="true" />
           {views.map((view) => (
             <a
               key={view.uid}
@@ -226,6 +252,7 @@ function App() {
               {view.status === "Missing" && <span className="dot" title="not built" />}
             </a>
           ))}
+          {config.tables.length > 0 && <span className="divider" aria-hidden="true" />}
           {config.tables.map((table) => (
             <a
               key={table.name}
@@ -239,9 +266,7 @@ function App() {
         {renders.running && (
           <a className="running" href="#/" title="the renders are being made">making renders</a>
         )}
-        {/* The way out of this book, which the book's own name is not: it leads
-            to this book's index. A book served alone has nowhere else to go. */}
-        {base !== "/" && <a className="books" href="/">all books</a>}
+        <span className="state">{saved}</span>
         <button
           className="theme"
           onClick={theme.flip}
@@ -249,7 +274,6 @@ function App() {
         >
           {theme.showing === "dark" ? "☾" : "☀"}
         </button>
-        <span className="state">{saved}</span>
       </header>
       <main>{page}</main>
     </div>
@@ -312,36 +336,44 @@ function statesOf(model, view, required) {
 
 function Render({ model, view, onShowing, stamp, theme, required }) {
   const states = statesOf(model, view, required);
+  const roomy = useRoomy();
   const [state, setState] = useState(0);
   const [chosen, setChosen] = useState(0);
-  const [gone, setGone] = useState(false);
+  const [gone, setGone] = useState({});
 
   const here = states[Math.min(state, states.length - 1)];
-  const shots = here.shots;
+  // A screen drawn light and the same screen drawn dark are the same picture to
+  // anyone not in that theme, so only the matching ones are shown.
+  const shots = inTheme(here.shots, theme).filter((shot) => !gone[shot.file]);
 
   useEffect(() => { setState(0); }, [view.uid]);
-  useEffect(() => { setChosen(preferred(shots, theme)); setGone(false); }, [view.uid, state, theme]);
+  useEffect(() => { setChosen(0); }, [view.uid, state, theme]);
 
-  const tell = (which) => onShowing({
-    state: here.title,
-    named: which ? (which.label ?? which.file.replace(/\.[a-z]+$/, "")) : "",
-  });
+  const named = (shot) => shot.label ?? shot.file.replace(/\.[a-z]+$/, "");
+  const showing = roomy ? shots : shots.slice(Math.min(chosen, Math.max(shots.length - 1, 0)),
+                                              Math.min(chosen, Math.max(shots.length - 1, 0)) + 1);
 
-  const shot = gone ? null : shots[Math.min(chosen, shots.length - 1)];
+  useEffect(() => {
+    onShowing({ state: here.title, named: showing.map(named).join(" and ") });
+  }, [here.title, showing.map((shot) => shot.file).join()]);
+
   return (
     <>
-      {shot ? (
-        <div className="frame">
-          <img
-            onError={() => setGone(true)}
-            src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
-            alt={`${view.title}, ${here.title}`}
-            onLoad={(e) => onShowing({
-              shape: e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait",
-              state: here.title,
-              named: shot.label ?? shot.file.replace(/\.[a-z]+$/, ""),
-            })}
-          />
+      {showing.length > 0 ? (
+        <div className="frames">
+          {showing.map((shot) => (
+            <div className="frame" key={shot.file}>
+              <img
+                src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
+                alt={`${view.title}, ${here.title}, ${named(shot)}`}
+                onError={() => setGone((was) => ({ ...was, [shot.file]: true }))}
+                onLoad={(e) => onShowing({
+                  shape: e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait",
+                  state: here.title,
+                })}
+              />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="noshot tall">
@@ -353,35 +385,51 @@ function Render({ model, view, onShowing, stamp, theme, required }) {
       )}
 
       {states.length > 1 && (
-      <div className="shapes">
-        {states.map((one, index) => (
-          <button
-            key={one.uid}
-            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
-            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
-            onClick={() => { setState(index); tell(one.shots[preferred(one.shots, theme)]); }}
-          >
-            {one.title}
-          </button>
-        ))}
-      </div>
+        <div className="shapes">
+          {states.map((one, index) => (
+            <button
+              key={one.uid}
+              className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
+              title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+              onClick={() => setState(index)}
+            >
+              {one.title}
+            </button>
+          ))}
+        </div>
       )}
 
-      {shots.length > 1 && (
+      {!roomy && shots.length > 1 && (
         <div className="shapes">
           {shots.map((one, index) => (
             <button
               key={one.file}
               className={`shape ${index === chosen ? "on" : ""}`}
-              onClick={() => { setChosen(index); tell(one); }}
+              onClick={() => setChosen(index)}
             >
-              {one.label ?? one.file.replace(/\.[a-z]+$/, "")}
+              {named(one)}
             </button>
           ))}
         </div>
       )}
     </>
   );
+}
+
+/**
+ * The renders that belong to the theme being read in.
+ *
+ * A project that draws its screens both ways says so in the file name or the
+ * label. One that draws them once is shown as it drew them, rather than being
+ * second-guessed.
+ */
+function inTheme(shots, theme) {
+  const other = theme === "dark" ? "light" : "dark";
+  const says = (shot, word) => `${shot.label ?? ""} ${shot.file}`.toLowerCase().includes(word);
+  const matching = shots.filter((shot) => says(shot, theme));
+  if (matching.length > 0) return matching;
+  const neutral = shots.filter((shot) => !says(shot, other));
+  return neutral.length > 0 ? neutral : shots;
 }
 
 /** Every render a view carries: one screenshot, or a list of them. */
@@ -399,15 +447,6 @@ function rendersOf(view) {
  * so in the file name or the label, and the page shows the one that matches what
  * the reader is looking at rather than a grid of screenshots in two themes.
  */
-function preferred(shots, theme) {
-  const says = (shot) => `${shot.label ?? ""} ${shot.file}`.toLowerCase().includes(theme);
-  const matching = shots.findIndex(says);
-  // No render says which theme it is, so the first one stands. Guessing by
-  // elimination would swap an upright render for a wide one, which answers a
-  // question nobody asked.
-  return matching >= 0 ? matching : 0;
-}
-
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
 function Thumb({ view, stamp, theme }) {
   const [shape, setShape] = useState("portrait");
@@ -415,7 +454,7 @@ function Thumb({ view, stamp, theme }) {
   const shots = rendersOf(view);
   useEffect(() => setGone(false), [view.uid]);
   if (shots.length === 0 || gone) return <div className="noshot">nothing renders this yet</div>;
-  const shot = shots[preferred(shots, theme)];
+  const shot = inTheme(shots, theme)[0];
   return (
     <img
       onError={() => setGone(true)}
@@ -561,7 +600,7 @@ function SketchBox() {
   );
 }
 
-function ViewPage({ model, view, onChange, stamp, theme, required }) {
+function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraft }) {
   const [showing, setShowing] = useState({ shape: "portrait", named: "", state: "" });
   const reachedFrom = view.relations
     .filter((r) => r.role === "Reached from")
@@ -602,6 +641,8 @@ function ViewPage({ model, view, onChange, stamp, theme, required }) {
         <Ask
           about={view.title}
           looking={[showing.state, showing.named, theme].filter(Boolean).join(", ")}
+          draft={draft}
+          onDraft={onDraft}
         />
       </div>
     </div>
@@ -620,11 +661,13 @@ function ViewPage({ model, view, onChange, stamp, theme, required }) {
  * other half of the loop - what is typed goes to the conversation, and what the
  * conversation says comes back underneath.
  */
-function Ask({ about, looking }) {
-  const [text, setText] = useState("");
+function Ask({ about, looking, draft, onDraft }) {
+  const text = draft ?? "";
+  const setText = onDraft ?? (() => {});
   const [shots, setShots] = useState([]);
   const [state, setState] = useState("");
   const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
   const talk = useRef(null);
   const box = useRef(null);
 
@@ -657,6 +700,7 @@ function Ask({ about, looking }) {
       setState("sent to the session");
       setText("");
       setShots([]);
+      setBusy(false);
     })
     .catch((error) => {
       if (tries > 0 && /could not type|busy/i.test(error.message)) {
@@ -665,11 +709,13 @@ function Ask({ about, looking }) {
         return;
       }
       setState(`not sent: ${error.message}`);
+      setBusy(false);
     });
 
   const send = () => {
     const message = text.trim();
-    if (!message && shots.length === 0) return;
+    if (busy || (!message && shots.length === 0)) return;
+    setBusy(true);
     setState("sending…");
     // A pasted image is already a file in the project; the conversation is given
     // its path, which is something it can actually open.
@@ -762,7 +808,7 @@ function Ask({ about, looking }) {
         <button
           className="send"
           onClick={send}
-          disabled={!text.trim() && shots.length === 0}
+          disabled={busy || (!text.trim() && shots.length === 0)}
         >
           Send
         </button>

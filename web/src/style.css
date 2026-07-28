@@ -96,16 +96,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* The tool, then which of its books this is. */
-.brand .tool { color: var(--quiet); font-weight: 600; }
-.brand .book.on { color: var(--accent); }
-
-.books {
-  flex: none;
-  font-size: 12.5px;
-  color: var(--quiet);
-}
-
-.books:hover { color: var(--accent); }
+.brand .tool { color: var(--ink); font-weight: 700; }
+.brand .tool:hover { color: var(--accent); }
+.brand .book { color: var(--quiet); font-weight: 600; }
 
 .theme {
   flex: none;
@@ -152,6 +145,15 @@ a { color: inherit; text-decoration: none; }
   color: #fff;
 }
 
+/* The screens of the app, then everything else the project keeps here. */
+.divider {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  background: var(--line);
+  margin: 4px 8px;
+}
+
 .tabs a.table-tab { color: var(--quiet); }
 .tabs a.table-tab.on { color: #fff; }
 
@@ -166,7 +168,6 @@ a { color: inherit; text-decoration: none; }
   flex: none;
   font-size: 12px;
   color: var(--quiet);
-  min-width: 60px;
   text-align: right;
 }
 
@@ -180,7 +181,7 @@ a { color: inherit; text-decoration: none; }
 main { flex: 1; min-width: 0; overflow-y: auto; }
 
 /* The last of the page clears the composer docked over it. */
-.page { padding: 24px clamp(14px, 3vw, 34px) 60px; max-width: 1600px; }
+.page { padding: 24px clamp(14px, 3vw, 34px) 40px; max-width: none; }
 
 .page:has(.dock) { padding-bottom: 300px; }
 
@@ -635,8 +636,8 @@ textarea.ask { min-height: 0; }
   grid-template-columns: minmax(0, 1fr);
   /* The bar, the heading and the page's own margins are what the window has
      already spent; the three things share what is left of it. */
-  height: calc(100vh - 215px);
-  height: calc(100dvh - 215px);
+  height: calc(100vh - 130px);
+  height: calc(100dvh - 130px);
   min-height: 380px;
 }
 
@@ -653,24 +654,36 @@ textarea.ask { min-height: 0; }
   gap: 8px;
 }
 
-.work .render .frame { flex: 1; min-height: 0; max-height: none; height: auto; }
+.frames {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* Side by side at the same height, each as wide as its own render wants to be,
+   both shrinking together when the two do not fit. */
+.frames .frame { flex: 0 1 auto; min-width: 0; min-height: 0; max-height: none; }
 
 /* An upright screen is drawn at the width it was made for and scrolled; a wide
    one is a whole screen already, so it is fitted rather than cropped by the
    frame it sits in. */
 .work .render img { width: 100%; height: auto; }
 
-/* The frame is the size of the render inside it, so a wide screen is not
-   surrounded by an acre of empty panel. */
-.work.landscape .render .frame {
+/* Each frame holds its render whole, sized to what is inside it rather than to
+   an acre of empty panel. */
+.frames .frame {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  overflow: hidden;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto;
+  overflow: auto;
 }
+
+.frames .frame img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+
+.frames .frame { align-items: center; overflow: hidden; }
 
 .work.landscape .render img {
   width: auto;

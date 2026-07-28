@@ -801,3 +801,13 @@ textarea.ask { min-height: 0; }
 
 /* The attachment sits above the box it will go out with. */
 .shots { flex: none; }
+
+/* Whether anything is working on this project, and the switch for it. */
+.ask-bar.session {
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--quiet);
+  flex: none;
+}
+
+.ask-bar.session .quiet { margin-left: 0; }

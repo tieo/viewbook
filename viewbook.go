@@ -42,6 +42,13 @@ type Server struct {
 	// show the answer rather than leaving someone wondering whether anything
 	// happened. Empty when there is nothing to read.
 	Session func() string
+	// Wake starts the session that works on this project, and Rest stops it.
+	// Opening a book is asking to work on the project, so the page can start
+	// what it is going to talk to; stopping it is the same choice made the
+	// other way, and both belong where the conversation is rather than in a
+	// terminal somewhere else.
+	Wake func() error
+	Rest func() error
 
 	watchers sync.Map // chan struct{} per subscriber
 	prefix   string
@@ -319,14 +326,38 @@ func (s *Server) pasted(w http.ResponseWriter, r *http.Request) {
 	s.serveFile(w, filepath.Join(pasteDir(), wanted), "image/png")
 }
 
-// session is the tail of the conversation, for a page that has just said
-// something and wants to show the reply.
+// session is the tail of the conversation, and whether there is one at all.
+// POST starts the session, DELETE stops it.
 func (s *Server) session(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		if s.Wake == nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "nothing here starts a session"})
+			return
+		}
+		if err := s.Wake(); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+			return
+		}
+	case http.MethodDelete:
+		if s.Rest == nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "nothing here stops a session"})
+			return
+		}
+		if err := s.Rest(); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+			return
+		}
+	}
 	text := ""
 	if s.Session != nil {
 		text = s.Session()
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"text": text})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"text":    text,
+		"running": text != "",
+		"canWake": s.Wake != nil,
+	})
 }
 
 func (s *Server) table(w http.ResponseWriter, r *http.Request) {

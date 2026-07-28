@@ -137,6 +137,12 @@ function App() {
   useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
+    // Opening a book is asking to work on the project, so whatever works on it
+    // is started rather than waited for.
+    api("api/session", { method: "POST" }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const version = config?.interface;
     if (!version) return;
     if (running.current === null) running.current = version;
@@ -687,6 +693,8 @@ function Ask({ about, looking, draft, onDraft, forced }) {
   const [state, setState] = useState("");
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(true);
+  const [canWake, setCanWake] = useState(false);
   const talk = useRef(null);
 
 
@@ -765,7 +773,9 @@ function Ask({ about, looking, draft, onDraft, forced }) {
   // After saying something, follow the session for a while so the answer shows
   // up here rather than only in a terminal somewhere.
   useEffect(() => {
-    const read = () => api("api/session").then((r) => setReply(r.text || "")).catch(() => {});
+    const read = () => api("api/session")
+      .then((r) => { setReply(r.text || ""); setRunning(Boolean(r.running)); setCanWake(Boolean(r.canWake)); })
+      .catch(() => {});
     read();
     const every = setInterval(read, 2500);
     return () => clearInterval(every);
@@ -775,6 +785,19 @@ function Ask({ about, looking, draft, onDraft, forced }) {
   // typed between them are what the page is for.
   return (
     <section className="talk">
+      {canWake && (
+        <div className="ask-bar session">
+          <span>{running ? "session running" : "no session"}</span>
+          <button
+            className="quiet"
+            onClick={() => api("api/session", { method: running ? "DELETE" : "POST" })
+              .then((r) => setRunning(Boolean(r.running)))
+              .catch((error) => setState(error.message))}
+          >
+            {running ? "stop it" : "start it"}
+          </button>
+        </div>
+      )}
       {reply
         ? <pre className="reply" ref={talk}>{reply.trimEnd().split("\n").slice(-80).join("\n")}</pre>
         : <p className="hint">Nothing in the session yet.</p>}

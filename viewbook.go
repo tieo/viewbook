@@ -70,6 +70,11 @@ type Config struct {
 	// Naming them here makes the ones nobody has drawn visible as gaps instead
 	// of leaving a book that shows only the happy one.
 	States []string `json:"states,omitempty"`
+	// Shapes every render is expected to come in. A phone app is upright and
+	// wide; a command-line program is one shape, a terminal, and asking it for
+	// two would be asking it to lie. Named here, they are counted as gaps like
+	// states are; left out, nothing is expected and one render is enough.
+	Shapes []string `json:"shapes,omitempty"`
 }
 
 // Table is a list a project already has as JSON, shown as a table. The tool

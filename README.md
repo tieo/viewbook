@@ -88,6 +88,21 @@ line, which is how a build is held to it:
 `viewbook.example.json` shows the config. Nothing in the tool knows anything about the app it is
 modelling, or what language that app is written in.
 
+## Programs without screens
+
+A command-line program has one shape, a terminal, and asking it for an upright
+render and a wide one would be asking it to lie. A book says which shapes its
+screens come in, and is held to those and no others:
+
+    "shapes": ["terminal"]                 # a CLI: one render per state
+    "shapes": ["phone", "wide"]            # an app on a phone and a desktop
+                                            # left out: nothing is expected
+
+The word is matched against the render's file name or label, so
+`split-report-terminal.png` covers `"terminal"`. Views are then whatever someone
+actually looks at: a report, a screen of a TUI, the output of one command.
+Papercut models two reports and nothing else.
+
 ## The renders
 
 Viewbook does not take the screenshots; the project does, and drops them in `img/`. Any toolchain

@@ -6,10 +6,12 @@ import (
 	"strings"
 )
 
-// Gap is one state of one view that nothing renders.
+// Gap is one state of one view that nothing renders, or one shape of it that
+// nothing draws.
 type Gap struct {
 	View  string `json:"view"`
 	State string `json:"state"`
+	Shape string `json:"shape,omitempty"`
 }
 
 // Gaps is every state a book says a screen can be in that no render shows.
@@ -22,7 +24,9 @@ func (s *Server) Gaps() []Gap {
 	model := readModel(s.path("model.json"))
 	views, _ := model["views"].([]any)
 	states, _ := model["states"].([]any)
-	required := s.config().States
+	declared := s.config()
+	required := declared.States
+	shapes := declared.Shapes
 
 	var gaps []Gap
 	for _, one := range views {
@@ -35,9 +39,7 @@ func (s *Server) Gaps() []Gap {
 		if title == "" {
 			title = uid
 		}
-		if len(rendersIn(view)) == 0 {
-			gaps = append(gaps, Gap{View: title, State: "as it is"})
-		}
+		gaps = append(gaps, missing(title, "as it is", rendersIn(view), shapes)...)
 
 		drawn := map[string]bool{}
 		for _, another := range states {
@@ -46,9 +48,7 @@ func (s *Server) Gaps() []Gap {
 				continue
 			}
 			named, _ := state["title"].(string)
-			if len(rendersIn(state)) == 0 {
-				gaps = append(gaps, Gap{View: title, State: named})
-			}
+			gaps = append(gaps, missing(title, named, rendersIn(state), shapes)...)
 			drawn[strings.ToLower(named)] = true
 		}
 		// A state the config asks every view to have, which this view does not
@@ -63,8 +63,33 @@ func (s *Server) Gaps() []Gap {
 		if gaps[i].View != gaps[j].View {
 			return gaps[i].View < gaps[j].View
 		}
-		return gaps[i].State < gaps[j].State
+		if gaps[i].State != gaps[j].State {
+			return gaps[i].State < gaps[j].State
+		}
+		return gaps[i].Shape < gaps[j].Shape
 	})
+	return gaps
+}
+
+// missing is what a state is short of: a render at all, or a render in each
+// shape the book says its screens come in.
+func missing(view, state string, files, shapes []string) []Gap {
+	if len(files) == 0 {
+		return []Gap{{View: view, State: state}}
+	}
+	var gaps []Gap
+	for _, shape := range shapes {
+		drawn := false
+		for _, file := range files {
+			if strings.Contains(strings.ToLower(file), strings.ToLower(shape)) {
+				drawn = true
+				break
+			}
+		}
+		if !drawn {
+			gaps = append(gaps, Gap{View: view, State: state, Shape: shape})
+		}
+	}
 	return gaps
 }
 
@@ -72,6 +97,10 @@ func (s *Server) Gaps() []Gap {
 func Said(gaps []Gap) string {
 	var out strings.Builder
 	for _, gap := range gaps {
+		if gap.Shape != "" {
+			fmt.Fprintf(&out, "%s: %s, %s\n", gap.View, gap.State, gap.Shape)
+			continue
+		}
 		fmt.Fprintf(&out, "%s: %s\n", gap.View, gap.State)
 	}
 	return out.String()

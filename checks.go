@@ -75,10 +75,11 @@ func (s *Server) Findings() []Finding {
 		}
 
 		prints := map[string]uint64{}
+		thumbs := map[string][]byte{}
 		for state, files := range shown {
 			for _, file := range files {
 				path := s.renderPath(file)
-				flat, print, err := look(path)
+				flat, print, thumb, err := look(path)
 				if err != nil {
 					continue
 				}
@@ -91,35 +92,73 @@ func (s *Server) Findings() []Finding {
 					continue
 				}
 				prints[state+"\x00"+file] = print
+				thumbs[state+"\x00"+file] = thumb
 			}
 		}
 
-		// The same picture under two names is either two names for one state or
-		// a screen that does not tell them apart.
-		keys := make([]string, 0, len(prints))
+		// The same picture under several names is either several names for one
+		// state, or a screen that does not tell them apart. Reported once per
+		// group rather than once per pair: four states that all look alike are
+		// one defect, not six.
+		grouped := map[string][]string{} // variant -> keys
 		for key := range prints {
-			keys = append(keys, key)
+			_, file, _ := strings.Cut(key, "\x00")
+			grouped[variant(file)] = append(grouped[variant(file)], key)
 		}
-		sort.Strings(keys)
-		for i := 0; i < len(keys); i++ {
-			for j := i + 1; j < len(keys); j++ {
-				first, second := keys[i], keys[j]
-				stateOne, fileOne, _ := strings.Cut(first, "\x00")
-				stateTwo, fileTwo, _ := strings.Cut(second, "\x00")
-				if stateOne == stateTwo || shape(fileOne) != shape(fileTwo) {
+
+		// Each variant answers the same question about a different picture, and
+		// the answers overlap: the phone renders may show three states alike
+		// where the wide ones show four. The widest answer is the finding; a
+		// subset of it is the same defect said again.
+		type alike struct {
+			states []string
+			files  []string
+		}
+		var groups []alike
+		for _, keys := range grouped {
+			sort.Strings(keys)
+			taken := map[string]bool{}
+			for i, key := range keys {
+				if taken[key] {
 					continue
 				}
-				if apart(prints[first], prints[second]) > 3 {
-					continue
+				stateOne, fileOne, _ := strings.Cut(key, "\x00")
+				group := alike{states: []string{stateOne}, files: []string{fileOne}}
+				for _, other := range keys[i+1:] {
+					stateTwo, fileTwo, _ := strings.Cut(other, "\x00")
+					if taken[other] || stateTwo == stateOne || apart(prints[key], prints[other]) > 6 {
+						continue
+					}
+					if differs(thumbs[key], thumbs[other]) > 0.012 {
+						continue
+					}
+					taken[other] = true
+					group.states = append(group.states, stateTwo)
+					group.files = append(group.files, fileTwo)
 				}
-				pair := []string{stateOne, stateTwo}
-				sort.Strings(pair)
-				keep(uid+"|same|"+pair[0]+"|"+pair[1], Finding{
-					What:  fmt.Sprintf("%s: %q and %q are the same picture", title, pair[0], pair[1]),
-					Why:   "two states a reader is meant to tell apart look identical; either the screen does not distinguish them, or one of these renders is of the wrong state",
-					Files: []string{fileOne, fileTwo},
-				})
+				if len(group.states) > 1 {
+					sort.Strings(group.states)
+					groups = append(groups, group)
+				}
 			}
+		}
+		for i, group := range groups {
+			widest := true
+			for j, other := range groups {
+				if i != j && within(group.states, other.states) &&
+					(len(group.states) < len(other.states) || (len(group.states) == len(other.states) && i > j)) {
+					widest = false
+					break
+				}
+			}
+			if !widest {
+				continue
+			}
+			keep(uid+"|same|"+strings.Join(group.states, "\x00"), Finding{
+				What:  fmt.Sprintf("%s: %s are the same picture", title, list(group.states)),
+				Why:   "states a reader is meant to tell apart look identical; either the screen does not distinguish them, or these renders are of the same thing",
+				Files: group.files,
+			})
 		}
 	}
 	sort.Slice(found, func(i, j int) bool { return found[i].What < found[j].What })
@@ -136,11 +175,18 @@ func (s *Server) renderPath(file string) string {
 	return s.path("img", "small", file)
 }
 
-// shape is what distinguishes renders of the same state from each other: the
-// upright one and the wide one are not the same picture and are not meant to be.
-func shape(file string) string {
-	return strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))[strings.LastIndex(
-		strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)), "-")+1:]
+// variant is what distinguishes renders of the same state from each other: the
+// upright one and the wide one, the light one and the dark one, are not the same
+// picture and are not meant to be. Only renders of the same variant are worth
+// comparing, and by convention that is the tail of the file name:
+// home-empty-phone-dark.png is the phone-dark variant.
+func variant(file string) string {
+	name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	parts := strings.Split(name, "-")
+	if len(parts) >= 2 {
+		return strings.Join(parts[len(parts)-2:], "-")
+	}
+	return name
 }
 
 // look reads a render and answers two things: whether anything is drawn on it,
@@ -150,20 +196,36 @@ func shape(file string) string {
 // brightnesses, each compared with the one to its right. Two pictures that
 // differ in a few words differ in a few bits; two that differ in what they show
 // differ in dozens.
-func look(path string) (flat bool, print uint64, err error) {
+func look(path string) (flat bool, print uint64, thumb []byte, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return false, 0, err
+		return false, 0, nil, err
 	}
 	defer file.Close()
 	drawn, err := png.Decode(file)
 	if err != nil {
-		return false, 0, err
+		return false, 0, nil, err
 	}
 
 	bounds := drawn.Bounds()
 	if bounds.Dx() < 9 || bounds.Dy() < 8 {
-		return false, 0, fmt.Errorf("too small to read")
+		return false, 0, nil, fmt.Errorf("too small to read")
+	}
+
+	// A difference hash finds candidates cheaply; a small grey copy settles
+	// them. On a sparse screen - a few words on a plain background - hashes of
+	// quite different pictures land within a bit or two of each other, and only
+	// the pixels can say whether the difference is a caption or a whole state.
+	const side = 64
+	thumb = make([]byte, side*side)
+	for y := 0; y < side; y++ {
+		for x := 0; x < side; x++ {
+			r, g, b, _ := drawn.At(
+				bounds.Min.X+x*bounds.Dx()/side,
+				bounds.Min.Y+y*bounds.Dy()/side,
+			).RGBA()
+			thumb[y*side+x] = byte((0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)) / 257)
+		}
 	}
 
 	grid := make([][]float64, 8)
@@ -186,7 +248,25 @@ func look(path string) (flat bool, print uint64, err error) {
 			}
 		}
 	}
-	return sameThroughout(drawn), print, nil
+	return sameThroughout(drawn), print, thumb, nil
+}
+
+// differs is how far apart two small grey copies are, as a fraction of full
+// black to full white. Two renders of one screen in two states differ by a
+// caption or a list; two renders of the same state differ by nothing.
+func differs(one, two []byte) float64 {
+	if len(one) != len(two) || len(one) == 0 {
+		return 1
+	}
+	total := 0
+	for i := range one {
+		diff := int(one[i]) - int(two[i])
+		if diff < 0 {
+			diff = -diff
+		}
+		total += diff
+	}
+	return float64(total) / float64(len(one)*255)
 }
 
 // sameThroughout is whether a picture is one colour: sampled rather than read
@@ -220,4 +300,36 @@ func apart(one, two uint64) int {
 		diff >>= 1
 	}
 	return count
+}
+
+
+// list is a few names in a sentence: "a", "a and b", "a, b and c".
+func list(names []string) string {
+	quoted := make([]string, len(names))
+	for i, name := range names {
+		quoted[i] = fmt.Sprintf("%q", name)
+	}
+	switch len(quoted) {
+	case 0, 1:
+		return strings.Join(quoted, "")
+	case 2:
+		return quoted[0] + " and " + quoted[1]
+	default:
+		return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1]
+	}
+}
+
+
+// within is whether every name in one group is in the other.
+func within(some, all []string) bool {
+	has := make(map[string]bool, len(all))
+	for _, name := range all {
+		has[name] = true
+	}
+	for _, name := range some {
+		if !has[name] {
+			return false
+		}
+	}
+	return true
 }

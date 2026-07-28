@@ -55,8 +55,19 @@ func (s *Server) Gaps() []Gap {
 				continue
 			}
 			named, _ := state["title"].(string)
-			gaps = append(gaps, missing(title, named, rendersIn(state), shapes)...)
 			drawn[strings.ToLower(named)] = true
+			if kind, _ := state["kind"].(string); kind != "" {
+				drawn[strings.ToLower(kind)] = true
+			}
+			// A state can be real and not drawable: a native map layer this
+			// renderer stubs out, a snackbar hosted outside the screen, a page
+			// the server draws rather than the interface. Deleting it would be a
+			// lie about the app; demanding a picture of it would be a lie about
+			// the renderer.
+			if drawable, said := state["drawable"].(bool); said && !drawable {
+				continue
+			}
+			gaps = append(gaps, missing(title, named, rendersIn(state), shapes)...)
 		}
 		// A state the config asks every view to have, which this view does not
 		// even model, is the same gap one step earlier.

@@ -2,7 +2,6 @@ package viewbook
 
 import (
 	"fmt"
-	"image"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -70,6 +69,9 @@ func (s *Server) Findings() []Finding {
 			if !ok || !stateOf(state, uid) {
 				continue
 			}
+			if drawable, said := state["drawable"].(bool); said && !drawable {
+				continue
+			}
 			named, _ := state["title"].(string)
 			shown[named] = rendersIn(state)
 		}
@@ -113,6 +115,7 @@ func (s *Server) Findings() []Finding {
 		type alike struct {
 			states []string
 			files  []string
+			apart  float64
 		}
 		var groups []alike
 		for _, keys := range grouped {
@@ -124,13 +127,22 @@ func (s *Server) Findings() []Finding {
 				}
 				stateOne, fileOne, _ := strings.Cut(key, "\x00")
 				group := alike{states: []string{stateOne}, files: []string{fileOne}}
+				worst := 0.0
 				for _, other := range keys[i+1:] {
 					stateTwo, fileTwo, _ := strings.Cut(other, "\x00")
-					if taken[other] || stateTwo == stateOne || apart(prints[key], prints[other]) > 6 {
+					if taken[other] || stateTwo == stateOne {
 						continue
 					}
-					if differs(thumbs[key], thumbs[other]) > 0.012 {
+					// The hash is no longer a gate. It threw away pairs whose
+					// difference was two whole lines of text, because text one
+					// character tall does not survive being reduced to a grid of
+					// sixty-four cells.
+					apartBy := differs(thumbs[key], thumbs[other])
+					if apartBy > 0.04 {
 						continue
+					}
+					if apartBy > worst {
+						worst = apartBy
 					}
 					taken[other] = true
 					group.states = append(group.states, stateTwo)
@@ -138,6 +150,7 @@ func (s *Server) Findings() []Finding {
 				}
 				if len(group.states) > 1 {
 					sort.Strings(group.states)
+					group.apart = worst
 					groups = append(groups, group)
 				}
 			}
@@ -155,8 +168,10 @@ func (s *Server) Findings() []Finding {
 				continue
 			}
 			keep(uid+"|same|"+strings.Join(group.states, "\x00"), Finding{
-				What:  fmt.Sprintf("%s: %s are the same picture", title, list(group.states)),
-				Why:   "states a reader is meant to tell apart look identical; either the screen does not distinguish them, or these renders are of the same thing",
+				What: fmt.Sprintf("%s: %s are the same picture", title, list(group.states)),
+				Why: fmt.Sprintf(
+					"they differ in %.1f%% of what is drawn; states a reader is meant to tell apart look identical, so either the screen does not distinguish them or these renders are of the same thing",
+					group.apart*100),
 				Files: group.files,
 			})
 		}
@@ -248,47 +263,72 @@ func look(path string) (flat bool, print uint64, thumb []byte, err error) {
 			}
 		}
 	}
-	return sameThroughout(drawn), print, thumb, nil
+	// Flatness is read off the small grey copy, which samples every part of the
+	// picture: a grid over the original can step straight past one line of text
+	// and call a page blank that is not.
+	lowest, highest := thumb[0], thumb[0]
+	for _, grey := range thumb {
+		if grey < lowest {
+			lowest = grey
+		}
+		if grey > highest {
+			highest = grey
+		}
+	}
+	return highest-lowest < 8, print, thumb, nil
 }
 
-// differs is how far apart two small grey copies are, as a fraction of full
-// black to full white. Two renders of one screen in two states differ by a
-// caption or a list; two renders of the same state differ by nothing.
+// differs is how much of what is drawn differs between two renders.
+//
+// Measured against the whole frame it is meaningless: a terminal is a flat
+// background with a few hundred glyphs on it, so two entirely different screens
+// differ in two percent of their pixels and two identical ones differ in zero.
+// Two percent of a phone screenshot is a rendering artefact; two percent of a
+// terminal screenshot is all of its content. So the difference is counted
+// against the ink: the parts of either picture that are not its background.
 func differs(one, two []byte) float64 {
 	if len(one) != len(two) || len(one) == 0 {
 		return 1
 	}
-	total := 0
-	for i := range one {
-		diff := int(one[i]) - int(two[i])
-		if diff < 0 {
-			diff = -diff
-		}
-		total += diff
-	}
-	return float64(total) / float64(len(one)*255)
-}
+	const apartEnough = 24 // a glyph against its background, not compression noise
 
-// sameThroughout is whether a picture is one colour: sampled rather than read
-// whole, since a render that is drawing anything at all differs within the
-// first few dozen samples.
-func sameThroughout(drawn image.Image) bool {
-	bounds := drawn.Bounds()
-	first := drawn.At(bounds.Min.X, bounds.Min.Y)
-	firstR, firstG, firstB, _ := first.RGBA()
-	for y := 0; y < 40; y++ {
-		for x := 0; x < 40; x++ {
-			at := drawn.At(
-				bounds.Min.X+x*bounds.Dx()/40,
-				bounds.Min.Y+y*bounds.Dy()/40,
-			)
-			r, g, b, _ := at.RGBA()
-			if r != firstR || g != firstG || b != firstB {
-				return false
+	ink := 0
+	for _, grey := range []([]byte){one, two} {
+		background := modal(grey)
+		for _, at := range grey {
+			if int(at)-int(background) > apartEnough || int(background)-int(at) > apartEnough {
+				ink++
 			}
 		}
 	}
-	return true
+	changed := 0
+	for i := range one {
+		if int(one[i])-int(two[i]) > apartEnough || int(two[i])-int(one[i]) > apartEnough {
+			changed++
+		}
+	}
+	if ink == 0 {
+		return 0
+	}
+	// Both pictures contributed their ink, so the change is measured against
+	// the average of the two.
+	return float64(changed) / (float64(ink) / 2)
+}
+
+// modal is the commonest brightness in a picture, which on any screen worth
+// looking at is its background.
+func modal(grey []byte) byte {
+	var counts [256]int
+	for _, at := range grey {
+		counts[at]++
+	}
+	most, which := 0, byte(0)
+	for value, count := range counts {
+		if count > most {
+			most, which = count, byte(value)
+		}
+	}
+	return which
 }
 
 // apart is how many bits two fingerprints differ by.

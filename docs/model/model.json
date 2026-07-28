@@ -195,36 +195,6 @@
     },
     {
       "tag": "STATE",
-      "uid": "STATE-VIEW-NOSESSION",
-      "title": "No session running",
-      "statement": "Nothing is working on this project right now, so there is nothing to show and nowhere to send a question.",
-      "relations": [
-        {
-          "to": "VIEW-VIEW",
-          "role": "State of"
-        }
-      ],
-      "renders": [
-        {
-          "file": "view-wide-light.png",
-          "label": "wide light"
-        },
-        {
-          "file": "view-wide-dark.png",
-          "label": "wide dark"
-        },
-        {
-          "file": "view-tall-light.png",
-          "label": "upright light"
-        },
-        {
-          "file": "view-tall-dark.png",
-          "label": "upright dark"
-        }
-      ]
-    },
-    {
-      "tag": "STATE",
       "uid": "STATE-INDEX-LOADING",
       "title": "Loading",
       "statement": "The model is being read; nothing is known about the app yet.",
@@ -525,36 +495,6 @@
     },
     {
       "tag": "STATE",
-      "uid": "STATE-SKETCH-EMPTY",
-      "title": "Empty",
-      "statement": "A canvas with nothing drawn on it yet.",
-      "relations": [
-        {
-          "to": "VIEW-SKETCH",
-          "role": "State of"
-        }
-      ],
-      "renders": [
-        {
-          "file": "sketch-empty-wide-light.png",
-          "label": "wide light"
-        },
-        {
-          "file": "sketch-empty-wide-dark.png",
-          "label": "wide dark"
-        },
-        {
-          "file": "sketch-empty-tall-light.png",
-          "label": "upright light"
-        },
-        {
-          "file": "sketch-empty-tall-dark.png",
-          "label": "upright dark"
-        }
-      ]
-    },
-    {
-      "tag": "STATE",
       "uid": "STATE-SKETCH-FAILED",
       "title": "Failed",
       "statement": "The model could not be read.",
@@ -594,24 +534,7 @@
           "role": "State of"
         }
       ],
-      "renders": [
-        {
-          "file": "books-loading-wide-light.png",
-          "label": "wide light"
-        },
-        {
-          "file": "books-loading-wide-dark.png",
-          "label": "wide dark"
-        },
-        {
-          "file": "books-loading-tall-light.png",
-          "label": "upright light"
-        },
-        {
-          "file": "books-loading-tall-dark.png",
-          "label": "upright dark"
-        }
-      ]
+      "drawable": false
     },
     {
       "tag": "STATE",
@@ -624,24 +547,7 @@
           "role": "State of"
         }
       ],
-      "renders": [
-        {
-          "file": "books-empty-wide-light.png",
-          "label": "wide light"
-        },
-        {
-          "file": "books-empty-wide-dark.png",
-          "label": "wide dark"
-        },
-        {
-          "file": "books-empty-tall-light.png",
-          "label": "upright light"
-        },
-        {
-          "file": "books-empty-tall-dark.png",
-          "label": "upright dark"
-        }
-      ]
+      "drawable": false
     },
     {
       "tag": "STATE",
@@ -654,24 +560,7 @@
           "role": "State of"
         }
       ],
-      "renders": [
-        {
-          "file": "books-failed-wide-light.png",
-          "label": "wide light"
-        },
-        {
-          "file": "books-failed-wide-dark.png",
-          "label": "wide dark"
-        },
-        {
-          "file": "books-failed-tall-light.png",
-          "label": "upright light"
-        },
-        {
-          "file": "books-failed-tall-dark.png",
-          "label": "upright dark"
-        }
-      ]
+      "drawable": false
     },
     {
       "tag": "STATE",

@@ -251,7 +251,13 @@ function App() {
 
   if (forced === "loading") return skeleton("Reading the model…");
   if (forced === "failed" || (broken && (!model || !config))) {
-    return skeleton(`This book's model could not be read. ${broken || "model.json is not there, or is not a model"}`);
+    return skeleton(
+      <span className="broken">
+        <strong>This book&rsquo;s model could not be read.</strong>
+        <span>{broken || "model.json is not there, or is not a model"}</span>
+        <span>Nothing on this page is current until it can be.</span>
+      </span>
+    );
   }
   if (!model || !config) return skeleton("Reading the model…");
 
@@ -385,6 +391,9 @@ function statesOf(model, view, required) {
     title: state.title,
     kind: state.kind,
     statement: state.statement,
+    // A state the renderer cannot reach is real and has no picture, which is
+    // not the same as a state nobody has drawn yet.
+    undrawable: state.drawable === false,
     shots: rendersOf(state),
   }));
 
@@ -675,8 +684,11 @@ function Steer({ states, state, setState, view, model, extra }) {
         {states.map((one, index) => (
           <button
             key={one.uid}
-            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
-            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+            className={`${index === state ? "on" : ""} ${
+              one.shots.length === 0 ? (one.undrawable ? "undrawable" : "gap") : ""}`}
+            title={one.undrawable
+              ? `${one.statement ?? ""} (this renderer cannot draw it)`.trim()
+              : one.shots.length === 0 ? "no render of this state yet" : one.statement}
             onClick={() => setState(index)}
           >
             {one.title}
@@ -800,7 +812,9 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
       node: (
         <div className="noshot tall">
           <span>
-            Nothing renders {here === states[0] ? "this view" : `this view ${here.title.toLowerCase()}`} yet.
+            {here.undrawable
+              ? `This state is real and this renderer cannot draw it: ${here.title.toLowerCase()}.`
+              : `Nothing renders ${here === states[0] ? "this view" : `this view ${here.title.toLowerCase()}`} yet.`}
             {here.statement && <><br />{here.statement}</>}
           </span>
         </div>

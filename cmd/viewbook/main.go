@@ -24,7 +24,8 @@ func main() {
 	sessionFile := flag.String("session-file", "",
 		"file whose contents are shown as the conversation; for rendering the states that have one")
 	start := flag.Bool("init", false, "write a book that works into the given directory and exit")
-	gaps := flag.Bool("gaps", false, "list the states nothing renders and exit non-zero when there are any")
+	gaps := flag.Bool("gaps", false, "list what is missing and what the renders say, and exit non-zero when a declared state has no render")
+	strict := flag.Bool("strict", false, "with --gaps, also exit non-zero when the renders say something")
 	keyFile := flag.String("key-file", defaultKeyPath(),
 		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
 	flag.Usage = func() {
@@ -100,12 +101,19 @@ Next:
 			// What the pictures say about themselves, which nobody had to
 			// predict: a render with nothing on it, two states that look the
 			// same. Reported, not gated: they are worth a look, not a failure.
-			for _, finding := range server.Findings() {
+			findings := server.Findings()
+			for _, finding := range findings {
 				fmt.Printf("%s\n  %s\n", finding.What, finding.Why)
+			}
+			if *strict {
+				found += len(findings)
+			} else if len(findings) > 0 {
+				fmt.Fprintf(os.Stderr,
+					"%d findings above are advisory and do not fail; --strict makes them fail\n", len(findings))
 			}
 		}
 		if found > 0 {
-			fmt.Fprintf(os.Stderr, "%d states nothing renders\n", found)
+			fmt.Fprintln(os.Stderr, "exit 1: something above has to be answered")
 			os.Exit(1)
 		}
 		fmt.Println("every state has a render")

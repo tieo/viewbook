@@ -183,7 +183,6 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
 /* The last of the page clears the composer docked over it. */
 .page { padding: 24px clamp(14px, 3vw, 34px) 40px; max-width: none; }
 
-.page:has(.dock) { padding-bottom: 300px; }
 
 .page-head {
   display: flex;
@@ -313,18 +312,9 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
    because a wide image in a 300px column is unreadable. Which one a view has is
    measured from the image itself. */
 
-.columns {
-  display: grid;
-  gap: 28px;
-  align-items: start;
-  grid-template-columns: minmax(0, 1fr);
-}
 
-.columns.portrait { grid-template-columns: minmax(220px, clamp(220px, 24vw, 340px)) minmax(0, 1fr); }
 
-.render { position: sticky; top: 0; }
 
-.columns.landscape .render { position: static; }
 
 /* A screen far taller than the window is shown at the width it was drawn for
    and scrolled inside its frame, rather than shrunk until nothing on it can be
@@ -395,48 +385,15 @@ h3 {
 
 
 
-.reqs, .states { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
-.reqs li, .states li {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
 
-.req-head { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
 
-.reqs p, .states p {
-  margin: 0;
-  font-size: 13.5px;
-  color: var(--quiet);
-  line-height: 1.5;
-}
 
-.serves { margin-top: 6px !important; font-size: 12px !important; }
 
-.setstatus { display: flex; gap: 5px; margin-top: 9px; }
 
-.setstatus button {
-  font: inherit;
-  font-size: 11.5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--quiet);
-  cursor: pointer;
-}
 
-.setstatus button:hover { border-color: var(--accent); color: var(--accent); }
 
-.setstatus button.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
 
-.empty { color: var(--quiet); font-size: 13px; }
 
 textarea {
   width: 100%;
@@ -654,18 +611,9 @@ textarea.ask { min-height: 0; }
   gap: 8px;
 }
 
-.frames {
-  display: flex;
-  gap: 14px;
-  flex: 1;
-  min-height: 0;
-  align-items: stretch;
-  justify-content: center;
-}
-
-/* Side by side at the same height, each as wide as its own render wants to be,
-   both shrinking together when the two do not fit. */
-.frames .frame { flex: 0 1 auto; min-width: 0; min-height: 0; max-height: none; }
+/* A render fills the pane it was given and scrolls in it when it is taller
+   than the pane; how wide that pane is, is the reader's business. */
+.pane .frame { flex: 1; min-width: 0; min-height: 0; max-height: none; overflow: auto; }
 
 /* An upright screen is drawn at the width it was made for and scrolled; a wide
    one is a whole screen already, so it is fitted rather than cropped by the
@@ -681,9 +629,9 @@ textarea.ask { min-height: 0; }
   overflow: auto;
 }
 
-.frames .frame img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.pane .frame img { width: 100%; height: auto; display: block; }
 
-.frames .frame { align-items: center; overflow: hidden; }
+
 
 .work.landscape .render img {
   width: auto;
@@ -693,7 +641,7 @@ textarea.ask { min-height: 0; }
   object-fit: contain;
 }
 
-.talk { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 0; }
+.talk { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 0; height: 100%; }
 
 .talk .reply {
   flex: 1;
@@ -704,14 +652,25 @@ textarea.ask { min-height: 0; }
 
 .talk .hint { flex: 0 0 auto; margin: 0; }
 
-.dock-row { display: flex; gap: 10px; align-items: flex-end; }
+.dock-row {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+/* The box is as tall as what is in it. A flex row stretches its children by
+   default, which turned a one-line composer into a quarter of the pane. */
+.dock-row > * { align-self: flex-end; }
 
 /* As tall as what is in it, never taller than a third of the screen, and never
    with a scrollbar around three lines of its own placeholder. */
 .talk textarea.ask {
-  flex: 1;
-  min-height: 0;
-  height: auto;
+  flex: none;
+  min-height: 44px;
+  /* Grows with what is typed, never past a third of the window. Without the
+     ceiling it took whatever height the pane could spare. */
+  max-height: min(34vh, 240px);
   resize: none;
   overflow-y: auto;
   font-size: 15px;
@@ -724,32 +683,13 @@ textarea.ask { min-height: 0; }
 
 
 
-.more > summary {
-  cursor: pointer;
-  font-size: 12px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--quiet);
-  padding: 8px 0;
-}
 
-.more > summary:hover { color: var(--accent); }
 
-.more .statement {
-  margin: 6px 0 20px;
-  color: var(--quiet);
-  font-size: 14px;
-  line-height: 1.5;
-  max-width: 62ch;
-  white-space: pre-wrap;
-}
 
 /* Upright, or short: one thing under the next, each bounded so all three are
    reachable without hunting. */
 @media (orientation: portrait), (max-width: 860px) {
-  .work, .work.portrait { grid-template-columns: minmax(0, 1fr); height: auto; }
-  .work.portrait .render .frame, .work.landscape .render .frame { max-height: 46vh; height: auto; }
-  .talk .reply { min-height: 22vh; max-height: 30vh; }
+  .talk .reply { min-height: 18vh; }
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
@@ -770,3 +710,29 @@ textarea.ask { min-height: 0; }
 
 .loading.broken { color: var(--broken); }
 .loading.broken .why { color: var(--quiet); font-size: 13px; margin-top: 6px; }
+
+/* ── Panes, dragged to wherever they belong ──────────── */
+
+.work .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+.grip {
+  flex: none;
+  width: 10px;
+  align-self: stretch;
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+}
+
+.grip.across { width: auto; height: 10px; cursor: row-resize; }
+
+.grip::after {
+  content: "";
+  position: absolute;
+  inset: 0 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.grip.across::after { inset: 4px 0; }
+.grip:hover::after { background: var(--accent); }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import { Sketch } from "./Sketch.jsx";
 
 const SAVE_AFTER_IDLE_MS = 800;
@@ -49,7 +50,6 @@ function useRoomy() {
 }
 
 const slug = (uid) => uid.replace(/^VIEW-/, "").toLowerCase();
-const statusClass = (status) => `pill ${status.toLowerCase()}`;
 
 /**
  * Light or dark, which is the reader's to decide.
@@ -296,13 +296,6 @@ function requirementsOf(model, uid) {
 }
 
 /**
- * What a view looks like today, at whatever shape it actually is.
- *
- * The same screen is upright on a phone and wide on a desktop, and a view can
- * carry both. Which one an image is, is measured when it loads rather than
- * declared in the model, so a project only has to drop the file in img/.
- */
-/**
  * Every state a view can be in, and what each looks like.
  *
  * A screen is not one picture. It is full and it is empty, it is loading and it
@@ -334,85 +327,16 @@ function statesOf(model, view, required) {
   return [asItIs, ...shown, ...missing];
 }
 
-function Render({ model, view, onShowing, stamp, theme, required }) {
-  const states = statesOf(model, view, required);
-  const roomy = useRoomy();
-  const [state, setState] = useState(0);
-  const [chosen, setChosen] = useState(0);
-  const [gone, setGone] = useState({});
-
-  const here = states[Math.min(state, states.length - 1)];
-  // A screen drawn light and the same screen drawn dark are the same picture to
-  // anyone not in that theme, so only the matching ones are shown.
-  const shots = inTheme(here.shots, theme).filter((shot) => !gone[shot.file]);
-
-  useEffect(() => { setState(0); }, [view.uid]);
-  useEffect(() => { setChosen(0); }, [view.uid, state, theme]);
-
-  const named = (shot) => shot.label ?? shot.file.replace(/\.[a-z]+$/, "");
-  const showing = roomy ? shots : shots.slice(Math.min(chosen, Math.max(shots.length - 1, 0)),
-                                              Math.min(chosen, Math.max(shots.length - 1, 0)) + 1);
-
-  useEffect(() => {
-    onShowing({ state: here.title, named: showing.map(named).join(" and ") });
-  }, [here.title, showing.map((shot) => shot.file).join()]);
-
+/** One render, in a frame it can be scrolled inside. */
+function Frame({ shot, alt, stamp, onGone }) {
   return (
-    <>
-      {showing.length > 0 ? (
-        <div className="frames">
-          {showing.map((shot) => (
-            <div className="frame" key={shot.file}>
-              <img
-                src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
-                alt={`${view.title}, ${here.title}, ${named(shot)}`}
-                onError={() => setGone((was) => ({ ...was, [shot.file]: true }))}
-                onLoad={(e) => onShowing({
-                  shape: e.target.naturalWidth > e.target.naturalHeight ? "landscape" : "portrait",
-                  state: here.title,
-                })}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="noshot tall">
-          <span>
-            Nothing renders {here === states[0] ? "this view" : `this view ${here.title.toLowerCase()}`} yet.
-            {here.statement && <><br />{here.statement}</>}
-          </span>
-        </div>
-      )}
-
-      {states.length > 1 && (
-        <div className="shapes">
-          {states.map((one, index) => (
-            <button
-              key={one.uid}
-              className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
-              title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
-              onClick={() => setState(index)}
-            >
-              {one.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!roomy && shots.length > 1 && (
-        <div className="shapes">
-          {shots.map((one, index) => (
-            <button
-              key={one.file}
-              className={`shape ${index === chosen ? "on" : ""}`}
-              onClick={() => setChosen(index)}
-            >
-              {named(one)}
-            </button>
-          ))}
-        </div>
-      )}
-    </>
+    <div className="frame">
+      <img
+        src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
+        alt={alt}
+        onError={onGone}
+      />
+    </div>
   );
 }
 
@@ -440,13 +364,6 @@ function rendersOf(view) {
   return view.screenshot ? [{ file: view.screenshot }] : [];
 }
 
-/**
- * The render to show first when a view carries several.
- *
- * A project that ships a screen drawn light and the same screen drawn dark says
- * so in the file name or the label, and the page shows the one that matches what
- * the reader is looking at rather than a grid of screenshots in two themes.
- */
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
 function Thumb({ view, stamp, theme }) {
   const [shape, setShape] = useState("portrait");
@@ -601,58 +518,150 @@ function SketchBox() {
 }
 
 function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraft }) {
-  const [showing, setShowing] = useState({ shape: "portrait", named: "", state: "" });
+  const states = statesOf(model, view, required);
+  const roomy = useRoomy();
+  const [state, setState] = useState(0);
+  const [chosen, setChosen] = useState(0);
+  const [gone, setGone] = useState({});
+
+  const here = states[Math.min(state, states.length - 1)];
+  // A screen drawn light and the same screen drawn dark are the same picture to
+  // anyone not reading in that theme, so only the matching ones are shown.
+  const shots = inTheme(here.shots, theme).filter((shot) => !gone[shot.file]);
+
+  useEffect(() => { setState(0); setChosen(0); }, [view.uid]);
+  // A render that was missing may have been drawn since; a refresh is the moment
+  // to find out rather than a reason to keep hiding it.
+  useEffect(() => { setGone({}); }, [view.uid, stamp]);
+
+  const named = (shot) => shot.label ?? shot.file.replace(/\.[a-z]+$/, "");
   const reachedFrom = view.relations
     .filter((r) => r.role === "Reached from")
     .map((r) => model.views.find((v) => v.uid === r.to))
     .filter(Boolean);
 
-  // The whole page is the view as it renders and the conversation about it. The
-  // navigation already says which view this is, and what it has to do is
-  // counted on the index; repeating either here only pushed the two things
-  // someone came for off the screen.
+  // A window with room shows every shape at once; a phone shows one and a chip
+  // to change it, because three rows of an inch each show nothing.
+  const visible = roomy ? shots : shots.slice(Math.min(chosen, Math.max(shots.length - 1, 0)),
+                                              Math.min(chosen, Math.max(shots.length - 1, 0)) + 1);
+
+  const renders = visible.map((shot) => ({
+    key: shot.file,
+    node: (
+      <Frame
+        shot={shot}
+        stamp={stamp}
+        alt={`${view.title}, ${here.title}, ${named(shot)}`}
+        onGone={() => setGone((was) => ({ ...was, [shot.file]: true }))}
+      />
+    ),
+  }));
+
+  if (renders.length === 0) {
+    renders.push({
+      key: "none",
+      node: (
+        <div className="noshot tall">
+          <span>
+            Nothing renders {here === states[0] ? "this view" : `this view ${here.title.toLowerCase()}`} yet.
+            {here.statement && <><br />{here.statement}</>}
+          </span>
+        </div>
+      ),
+    });
+  }
+
+  // What is being looked at goes with the question: which state, which render,
+  // and whether the page is light or dark are half of what "this looks wrong"
+  // means.
+  const conversation = (
+    <Ask
+      key={view.uid}
+      about={view.title}
+      looking={[here.title, shots.map(named).join(" and "), theme].filter(Boolean).join(", ")}
+      draft={draft}
+      onDraft={onDraft}
+    />
+  );
+
+  // Where the boundaries sit is the reader's, not the layout's: the renders and
+  // the conversation are panes, dragged to whatever this screen and this
+  // question call for, and remembered.
+  const panes = [...renders, { key: "talk", node: conversation }];
   return (
     <div className="page">
-      <div className={`work ${showing.shape}`}>
-        <section className="render">
-          <Render
-            model={model}
-            view={view}
-            required={required}
-            onShowing={(next) => setShowing((was) => ({ ...was, ...next }))}
-            stamp={stamp}
-            theme={theme}
-          />
-          {reachedFrom.length > 0 && (
-            <p className="from">
-              Reached from{" "}
-              {reachedFrom.map((v, i) => (
-                <React.Fragment key={v.uid}>
-                  {i > 0 && ", "}
-                  <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
-                </React.Fragment>
-              ))}
-            </p>
-          )}
-        </section>
-        {/* What is being looked at goes with the question: which render, and
-            whether the page is light or dark, are half of what "this looks
-            wrong" means. */}
-        <Ask
-          about={view.title}
-          looking={[showing.state, showing.named, theme].filter(Boolean).join(", ")}
-          draft={draft}
-          onDraft={onDraft}
-        />
+      <div className="work">
+        {roomy ? (
+          <Group orientation="horizontal" id={`viewbook.panes.${panes.length}`}>
+            {panes.map((pane, index) => (
+              <React.Fragment key={pane.key}>
+                {index > 0 && <Separator className="grip" />}
+                <Panel
+                  minSize={10}
+                  defaultSize={pane.key === "talk" ? 50 : 50 / Math.max(renders.length, 1)}
+                  className="pane"
+                >
+                  {pane.node}
+                </Panel>
+              </React.Fragment>
+            ))}
+          </Group>
+        ) : (
+          <Group orientation="vertical" id={`viewbook.rows.${panes.length}`}>
+            {panes.map((pane, index) => (
+              <React.Fragment key={pane.key}>
+                {index > 0 && <Separator className="grip across" />}
+                <Panel minSize={10} defaultSize={pane.key === "talk" ? 50 : 50 / Math.max(renders.length, 1)} className="pane">
+                  {pane.node}
+                </Panel>
+              </React.Fragment>
+            ))}
+          </Group>
+        )}
       </div>
+
+      {!roomy && shots.length > 1 && (
+        <div className="shapes">
+          {shots.map((one, index) => (
+            <button
+              key={one.file}
+              className={`shape ${index === chosen ? "on" : ""}`}
+              onClick={() => setChosen(index)}
+            >
+              {named(one)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="shapes">
+        {states.map((one, index) => (
+          <button
+            key={one.uid}
+            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
+            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+            onClick={() => setState(index)}
+          >
+            {one.title}
+          </button>
+        ))}
+      </div>
+
+      {reachedFrom.length > 0 && (
+        <p className="from">
+          Reached from{" "}
+          {reachedFrom.map((v, i) => (
+            <React.Fragment key={v.uid}>
+              {i > 0 && ", "}
+              <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
+            </React.Fragment>
+          ))}
+        </p>
+      )}
     </div>
   );
 }
 
-/**
- * A table a project declares in viewbook.json: where the rows come from, which columns to show,
- * and how to say a value that is a list or a flag. Nothing here knows what the rows are about.
- */
 /**
  * Say something to the session, and see it land.
  *

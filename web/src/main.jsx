@@ -10,7 +10,17 @@ export const base = location.pathname.replace(/[^/]*$/, "");
 
 async function api(path, options) {
   const response = await fetch(base + path, options);
-  if (!response.ok) throw new Error(`${options?.method ?? "GET"} ${path}: ${response.status}`);
+  if (!response.ok) {
+    // The server says what went wrong; a status code says only that something
+    // did, which is the least useful half of the answer.
+    let said = "";
+    try {
+      said = (await response.json())?.error ?? "";
+    } catch {
+      said = "";
+    }
+    throw new Error(said || `${options?.method ?? "GET"} ${path}: ${response.status}`);
+  }
   return response.json();
 }
 
@@ -635,6 +645,28 @@ function Ask({ about, looking }) {
   // so it is shown on arrival rather than only after sending something.
 
 
+  // A session that is mid-answer cannot be typed into. Waiting a few seconds and
+  // trying again is what a person would do, so the page does it rather than
+  // handing back a number.
+  const sendOnce = (said, tries) => api("api/say", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: said }),
+  })
+    .then(() => {
+      setState("sent to the session");
+      setText("");
+      setShots([]);
+    })
+    .catch((error) => {
+      if (tries > 0 && /could not type|busy/i.test(error.message)) {
+        setState("the session is busy, trying again…");
+        setTimeout(() => sendOnce(said, tries - 1), 4000);
+        return;
+      }
+      setState(`not sent: ${error.message}`);
+    });
+
   const send = () => {
     const message = text.trim();
     if (!message && shots.length === 0) return;
@@ -646,17 +678,7 @@ function Ask({ about, looking }) {
     // the message: otherwise the answer is about a picture nobody is looking at.
     const at = about ? `About ${about}${looking ? ` (${looking})` : ""}: ` : "";
     const said = at + message + attached;
-    api("api/say", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: said }),
-    })
-      .then(() => {
-        setState("sent to the session");
-        setText("");
-        setShots([]);
-      })
-      .catch((error) => setState(`not sent: ${error.message}`));
+    sendOnce(said, 3);
   };
 
   const paste = (event) => {

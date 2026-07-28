@@ -77,7 +77,7 @@ while read -r file path hash; do
   [ "$path" = "BOOK" ] && path="$book"
   [ "$hash" = "-" ] && hash=""
   for theme in light dark; do
-    shoot "$file-wide-$theme" "$path" "$hash" 1440 900 "$theme"
+    shoot "$file-wide-$theme" "$path" "$hash" 1180 760 "$theme"
     shoot "$file-tall-$theme" "$path" "$hash" 430 932 "$theme"
   done
 done <<'VIEWS'
@@ -93,21 +93,21 @@ VIEWS
 # read it. A book that demands these of every project draws its own.
 echo "rendering the states"
 for theme in light dark; do
-  for state in loading empty failed; do
+  for state in loading empty failed attached; do
     for page in "index:#/" "view:#/view/table" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
       name="${page%%:*}"
       hash="${page#*:}"
-      shoot "$name-$state-wide-$theme" "$book" "&showing=$state$hash" 1440 900 "$theme"
+      shoot "$name-$state-wide-$theme" "$book" "&showing=$state$hash" 1180 760 "$theme"
       shoot "$name-$state-tall-$theme" "$book" "&showing=$state$hash" 430 932 "$theme"
     done
-    shoot "books-$state-wide-$theme" "/" "&showing=$state" 1440 900 "$theme"
+    shoot "books-$state-wide-$theme" "/" "&showing=$state" 1180 760 "$theme"
     shoot "books-$state-tall-$theme" "/" "&showing=$state" 430 932 "$theme"
   done
 
   # A book whose views have no renders, and a view with a conversation in it.
-  shoot "index-bare-wide-$theme" "/bare/" "#/" 1440 900 "$theme"
+  shoot "index-bare-wide-$theme" "/bare/" "#/" 1180 760 "$theme"
   shoot "index-bare-tall-$theme" "/bare/" "#/" 430 932 "$theme"
-  shoot "view-talking-wide-$theme" "$book" "#/view/table" 1440 900 "$theme"
+  shoot "view-talking-wide-$theme" "$book" "#/view/table" 1180 760 "$theme"
   shoot "view-talking-tall-$theme" "$book" "#/view/table" 430 932 "$theme"
 done
 

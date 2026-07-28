@@ -672,6 +672,36 @@
           "label": "upright dark"
         }
       ]
+    },
+    {
+      "tag": "STATE",
+      "uid": "STATE-VIEW-ATTACHED",
+      "title": "With an image attached",
+      "statement": "A screenshot has been pasted into the box and is waiting to go out with the message.",
+      "relations": [
+        {
+          "to": "VIEW-VIEW",
+          "role": "State of"
+        }
+      ],
+      "renders": [
+        {
+          "file": "view-attached-wide-light.png",
+          "label": "wide light"
+        },
+        {
+          "file": "view-attached-wide-dark.png",
+          "label": "wide dark"
+        },
+        {
+          "file": "view-attached-tall-light.png",
+          "label": "upright light"
+        },
+        {
+          "file": "view-attached-tall-dark.png",
+          "label": "upright dark"
+        }
+      ]
     }
   ],
   "stories": [

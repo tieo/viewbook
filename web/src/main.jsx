@@ -207,6 +207,7 @@ function App() {
           required={config.states}
           draft={drafts[view.uid] ?? ""}
           onDraft={(text) => setDrafts((was) => ({ ...was, [view.uid]: text }))}
+          forced={forced}
         />
       : <NoSuchView />;
   } else if (section === "sketch") {
@@ -522,7 +523,7 @@ function SketchBox() {
   );
 }
 
-function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraft }) {
+function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraft, forced }) {
   const states = statesOf(model, view, required);
   const roomy = useRoomy();
   const [state, setState] = useState(0);
@@ -586,6 +587,7 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
       looking={[here.title, shots.map(named).join(" and "), theme].filter(Boolean).join(", ")}
       draft={draft}
       onDraft={onDraft}
+      forced={forced}
     />
   );
 
@@ -595,6 +597,44 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
   const panes = [...renders, { key: "talk", node: conversation }];
   return (
     <div className="page">
+      <div className="steer">
+        <div className="chips">
+          {states.map((one, index) => (
+            <button
+              key={one.uid}
+              className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
+              title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+              onClick={() => setState(index)}
+            >
+              {one.title}
+            </button>
+          ))}
+        </div>
+        {!roomy && shots.length > 1 && (
+          <div className="chips shapes">
+            {shots.map((one, index) => (
+              <button
+                key={one.file}
+                className={index === chosen ? "on" : ""}
+                onClick={() => setChosen(index)}
+              >
+                {named(one)}
+              </button>
+            ))}
+          </div>
+        )}
+        {reachedFrom.length > 0 && (
+          <p className="from">
+            Reached from{" "}
+            {reachedFrom.map((v, i) => (
+              <React.Fragment key={v.uid}>
+                {i > 0 && ", "}
+                <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
+              </React.Fragment>
+            ))}
+          </p>
+        )}
+      </div>
       <div className="work">
         {roomy ? (
           <Group orientation="horizontal" id={`viewbook.panes.${panes.length}`}>
@@ -625,44 +665,6 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
         )}
       </div>
 
-      {!roomy && shots.length > 1 && (
-        <div className="shapes">
-          {shots.map((one, index) => (
-            <button
-              key={one.file}
-              className={`shape ${index === chosen ? "on" : ""}`}
-              onClick={() => setChosen(index)}
-            >
-              {named(one)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="shapes">
-        {states.map((one, index) => (
-          <button
-            key={one.uid}
-            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
-            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
-            onClick={() => setState(index)}
-          >
-            {one.title}
-          </button>
-        ))}
-      </div>
-
-      {reachedFrom.length > 0 && (
-        <p className="from">
-          Reached from{" "}
-          {reachedFrom.map((v, i) => (
-            <React.Fragment key={v.uid}>
-              {i > 0 && ", "}
-              <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
-            </React.Fragment>
-          ))}
-        </p>
-      )}
     </div>
   );
 }
@@ -675,10 +677,13 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
  * other half of the loop - what is typed goes to the conversation, and what the
  * conversation says comes back underneath.
  */
-function Ask({ about, looking, draft, onDraft }) {
+function Ask({ about, looking, draft, onDraft, forced }) {
   const text = draft ?? "";
   const setText = onDraft ?? (() => {});
-  const [shots, setShots] = useState([]);
+  // ?showing=attached holds the state where an image is waiting to go with the
+  // message, which is otherwise a state only a paste can reach.
+  const [shots, setShots] = useState(() =>
+    (forced === "attached" ? [{ url: "img/small/index-tall-dark.png", path: "(pasted image)" }] : []));
   const [state, setState] = useState("");
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
@@ -773,6 +778,18 @@ function Ask({ about, looking, draft, onDraft }) {
       {reply
         ? <pre className="reply" ref={talk}>{reply.trimEnd().split("\n").slice(-80).join("\n")}</pre>
         : <p className="hint">Nothing in the session yet.</p>}
+      {shots.length > 0 && (
+        <div className="shots">
+          {shots.map((shot) => (
+            <span key={shot.url}>
+              <img src={base + shot.url} alt="attached" />
+              <button className="quiet" onClick={() => setShots((now) => now.filter((s) => s !== shot))}>
+                remove
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="dock-row">
       <textarea
         className="ask"
@@ -790,18 +807,6 @@ function Ask({ about, looking, draft, onDraft }) {
           }
         }}
       />
-      {shots.length > 0 && (
-        <div className="shots">
-          {shots.map((shot) => (
-            <span key={shot.url}>
-              <img src={base + shot.url} alt="pasted" />
-              <button className="quiet" onClick={() => setShots((now) => now.filter((s) => s !== shot))}>
-                remove
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
         <button
           className="send"
           onClick={send}

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -26,6 +27,7 @@ func main() {
 	start := flag.Bool("init", false, "write a book that works into the given directory and exit")
 	gaps := flag.Bool("gaps", false, "list what is missing and what the renders say, and exit non-zero when a declared state has no render")
 	strict := flag.Bool("strict", false, "with --gaps, also exit non-zero when the renders say something")
+	asJSON := flag.Bool("json", false, "with --gaps, write what was found as JSON on stdout")
 	keyFile := flag.String("key-file", defaultKeyPath(),
 		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
 	flag.Usage = func() {
@@ -93,6 +95,7 @@ same picture. A book that wants more can ask for it:
 	// whose empty or failed state nobody has ever drawn.
 	if *gaps {
 		found := 0
+		books := []map[string]any{}
 		for _, dir := range flag.Args() {
 			root, err := filepath.Abs(dir)
 			if err != nil {
@@ -102,6 +105,17 @@ same picture. A book that wants more can ask for it:
 			server := &viewbook.Server{Root: root}
 			missing := server.Gaps()
 			found += len(missing)
+			if *asJSON {
+				books = append(books, map[string]any{
+					"book":     root,
+					"gaps":     missing,
+					"findings": server.Findings(),
+				})
+				if *strict {
+					found += len(server.Findings())
+				}
+				continue
+			}
 			if said := viewbook.Said(missing); said != "" {
 				fmt.Print(said)
 			}
@@ -115,9 +129,17 @@ same picture. A book that wants more can ask for it:
 			if *strict {
 				found += len(findings)
 			} else if len(findings) > 0 {
-				fmt.Fprintf(os.Stderr,
-					"%d findings above are advisory and do not fail; --strict makes them fail\n", len(findings))
+				fmt.Fprintf(os.Stderr, "%s above %s advisory and %s not fail; --strict makes %s fail\n",
+					count(len(findings), "finding"), was(len(findings)), does(len(findings)), them(len(findings)))
 			}
+		}
+		if *asJSON {
+			written, err := json.MarshalIndent(books, "", "  ")
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			fmt.Println(string(written))
 		}
 		if found > 0 {
 			fmt.Fprintln(os.Stderr, "exit 1: something above has to be answered")
@@ -174,6 +196,36 @@ same picture. A book that wants more can ask for it:
 		fmt.Fprintln(os.Stderr, "viewbook:", err)
 		os.Exit(1)
 	}
+}
+
+// count says how many of a thing there are without inventing a plural for one
+// of them.
+func count(many int, thing string) string {
+	if many == 1 {
+		return "1 " + thing
+	}
+	return fmt.Sprintf("%d %ss", many, thing)
+}
+
+func was(many int) string {
+	if many == 1 {
+		return "is"
+	}
+	return "are"
+}
+
+func does(many int) string {
+	if many == 1 {
+		return "does"
+	}
+	return "do"
+}
+
+func them(many int) string {
+	if many == 1 {
+		return "it"
+	}
+	return "them"
 }
 
 // projectName is what to call a book kept at a path like project/docs/model:

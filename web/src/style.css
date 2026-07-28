@@ -811,3 +811,66 @@ textarea.ask { min-height: 0; }
 }
 
 .ask-bar.session .quiet { margin-left: 0; }
+
+/* ── Every state at once ─────────────────────────────── */
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  overflow: auto;
+  align-content: start;
+  flex: 1;
+  min-height: 0;
+}
+
+.compare figure {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cropped to the top: what identifies a state is the top of the screen, and a
+   caption nobody can see because the picture is 900 pixels tall says nothing. */
+.compare img { width: 100%; height: 380px; object-fit: cover; object-position: top; display: block; }
+
+.compare figcaption {
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.compare figure.gap { border-style: dashed; border-color: var(--missing); }
+.compare figure.gap figcaption { color: var(--missing); }
+
+/* Where a view comes from in the code, said next to the view. */
+.sources { margin: 0 !important; display: flex; flex-wrap: wrap; gap: 6px; }
+
+.sources code {
+  font-size: 11.5px;
+  color: var(--quiet);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+/* What is wrong with the book, said in the book. */
+.trouble {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--broken);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.trouble p { margin: 0 0 6px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.trouble p:last-child { margin: 0; }
+.trouble strong { color: var(--broken); }
+.trouble span { color: var(--quiet); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }

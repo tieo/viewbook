@@ -1,6 +1,8 @@
 package viewbook
 
 import (
+	"fmt"
+	"html"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
@@ -31,6 +33,12 @@ const keyCookie = "viewbook"
 // An empty key turns the second check off, which is for a book with no session
 // behind it and nothing to say into.
 func Guard(key string, next http.Handler) http.Handler {
+	return GuardFrom(key, "", next)
+}
+
+// GuardFrom is Guard, told where the key is kept so it can say so when a
+// request arrives without one.
+func GuardFrom(key, keyFile string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !sameOrigin(r) {
 			http.Error(w, "cross-site request refused", http.StatusForbidden)
@@ -64,7 +72,7 @@ func Guard(key string, next http.Handler) http.Handler {
 			return
 		}
 		if !carriesKey(r, key) {
-			http.Error(w, "viewbook needs its key: open the address it printed on startup", http.StatusUnauthorized)
+			refused(w, keyFile)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -136,4 +144,40 @@ func KeyAt(path string) (string, error) {
 		return "", err
 	}
 	return key, nil
+}
+
+
+// refused is what someone sees who reached the door without the key. A blank
+// page with one sentence on it tells them they are locked out and nothing
+// about how to get in; this says where the key is and what to do with it.
+func refused(w http.ResponseWriter, keyFile string) {
+	where := keyFile
+	if where == "" {
+		where = "the file the server printed on startup"
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Viewbook needs its key</title><style>
+:root{color-scheme:light dark;--bg:#fbfbf9;--panel:#fff;--ink:#14181a;--quiet:#6b7478;--line:#e4e6e3;--accent:#2f9e44}
+@media(prefers-color-scheme:dark){:root{--bg:#14171a;--panel:#1b1f22;--ink:#e9ecef;--quiet:#99a2a8;--line:#2b3136}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",system-ui,sans-serif;
+display:flex;min-height:100vh;align-items:center;justify-content:center}
+main{width:min(620px,90vw);padding:40px 0}h1{font-size:22px;margin:0 0 10px}
+p{color:var(--quiet);font-size:14px;line-height:1.6;margin:0 0 14px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:var(--panel);
+border:1px solid var(--line);border-radius:7px;padding:2px 6px}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;
+font-size:13px;color:var(--ink)}
+</style></head><body><main>
+<h1>Viewbook needs its key</h1>
+<p>What is typed in a viewbook reaches a session that can run commands, so the page opens for
+whoever holds the key and for nobody else.</p>
+<p>The key is a file only its owner can read:</p>
+<pre>%s</pre>
+<p>Open the book with it once and the browser keeps it:</p>
+<pre>%s?key=$(cat %s)</pre>
+<p>The server prints that address on startup. If this is someone else's machine, that is the
+answer: there is nothing here for you.</p>
+</main></body></html>`, html.EscapeString(where), "http://127.0.0.1:8099/", html.EscapeString(where))
 }

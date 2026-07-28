@@ -110,6 +110,7 @@ func (s *Server) Handler(prefix string) http.Handler {
 	mux.HandleFunc(prefix+"api/paste", s.paste)
 	mux.HandleFunc(prefix+"api/session", s.session)
 	mux.HandleFunc(prefix+"api/renders", s.renders)
+	mux.HandleFunc(prefix+"api/check", s.check)
 	mux.HandleFunc(prefix+"img/", s.image)
 	mux.HandleFunc(prefix+"pasted/", s.pasted)
 	s.prefix = prefix
@@ -446,6 +447,36 @@ func (s *Server) image(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.serveFile(w, path, "image/png")
+}
+
+// check is what is wrong with this book: a model that will not parse, and every
+// state nothing renders. A page can then say it in the page, which is where
+// someone is looking when they find out.
+func (s *Server) check(w http.ResponseWriter, r *http.Request) {
+	trouble := []map[string]string{}
+	body, err := os.ReadFile(s.path("model.json"))
+	if err != nil {
+		trouble = append(trouble, map[string]string{
+			"what": "model.json cannot be read", "why": err.Error(),
+		})
+	} else {
+		var parsed map[string]any
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			trouble = append(trouble, map[string]string{
+				"what": "model.json is not valid JSON", "why": err.Error(),
+			})
+		} else {
+			for _, kind := range []string{"views", "requirements", "states", "stories"} {
+				if _, ok := parsed[kind]; !ok {
+					trouble = append(trouble, map[string]string{
+						"what": "model.json has no " + kind,
+						"why":  "a model is four lists: views, requirements, states and stories",
+					})
+				}
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"trouble": trouble, "gaps": s.Gaps()})
 }
 
 // tell hands each change to whoever is working on this project.

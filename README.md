@@ -21,6 +21,16 @@ nothing about rendering. Teams glue those together by hand; this is the glue as 
 Everything is a plain file in the project being modelled, so an edit in the browser is a diff in
 that project's repository, and whoever works on the app edits exactly what the browser shows.
 
+## Starting a book
+
+    viewbook --init path/to/docs/model      # a config, a model with one view, and img/
+    viewbook --gaps path/to/docs/model      # what it is still missing
+    viewbook path/to/docs/model             # read it
+
+A view may say where it comes from in the code, and the page shows it:
+
+    "sources": ["src/screens/Home.kt", "src/screens/HomeState.kt"]
+
 ## Installing it
 
     nix run github:tieo/viewbook -- path/to/model          # no checkout, no toolchain

@@ -23,6 +23,7 @@ func main() {
 	say := flag.String("say", "", "command run with a message on stdin when something is changed or asked (e.g. \"proj say myproject\")")
 	sessionFile := flag.String("session-file", "",
 		"file whose contents are shown as the conversation; for rendering the states that have one")
+	start := flag.Bool("init", false, "write a book that works into the given directory and exit")
 	gaps := flag.Bool("gaps", false, "list the states nothing renders and exit non-zero when there are any")
 	keyFile := flag.String("key-file", defaultKeyPath(),
 		"file holding the key the browser must carry; empty serves to anyone who reaches the port")
@@ -43,6 +44,30 @@ name, with a list of them at the root.
 	if flag.NArg() == 0 {
 		flag.Usage()
 		os.Exit(2)
+	}
+
+	if *start {
+		for _, dir := range flag.Args() {
+			root, err := filepath.Abs(dir)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			if err := viewbook.Start(root, projectName(root)); err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			fmt.Printf(`wrote a book into %s
+
+  viewbook.json   what it is called, which states every view must have, and what draws them
+  model.json      one example view and one requirement, to replace with real ones
+  img/            where the renders go
+
+Next: viewbook %s      serve it
+      viewbook --gaps %s   list the states nothing renders yet
+`, root, root, root)
+		}
+		return
 	}
 
 	// Held to its own list: a project's build can run this and fail on a screen
@@ -113,7 +138,7 @@ name, with a list of them at the root.
 		opening += "?key=" + key
 	}
 	fmt.Printf("viewbook on %s\n", opening)
-	if err := http.ListenAndServe(*listen, viewbook.Guard(key, handler)); err != nil {
+	if err := http.ListenAndServe(*listen, viewbook.GuardFrom(key, *keyFile, handler)); err != nil {
 		fmt.Fprintln(os.Stderr, "viewbook:", err)
 		os.Exit(1)
 	}

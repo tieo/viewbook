@@ -89,6 +89,15 @@ function useTheme() {
  * A build that prints nothing for four minutes is indistinguishable from one
  * that has hung, so while it runs the page reads its output every second.
  */
+/** What is wrong with this book: a model that will not parse, states nothing renders. */
+function useCheck(stamp) {
+  const [trouble, setTrouble] = useState({ trouble: [], gaps: [] });
+  useEffect(() => {
+    api("api/check").then(setTrouble).catch(() => {});
+  }, [stamp]);
+  return trouble;
+}
+
 function useRenders() {
   const [state, setState] = useState(null);
   const read = useCallback(
@@ -397,6 +406,7 @@ function Thumb({ view, stamp, theme }) {
 }
 
 function IndexPage({ views, model, stamp, renders, theme, required }) {
+  const check = useCheck(stamp);
   const open = model.requirements.filter((r) => r.status !== "Built");
   const gaps = views.reduce(
     (count, view) => count + statesOf(model, view, required).filter((s) => s.shots.length === 0).length, 0);
@@ -412,6 +422,16 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
           </p>
         </div>
       </header>
+      {check.trouble?.length > 0 && (
+        <div className="trouble">
+          {check.trouble.map((one) => (
+            <p key={one.what}>
+              <strong>{one.what}</strong>
+              <span>{one.why}</span>
+            </p>
+          ))}
+        </div>
+      )}
       {gaps > 0 && (
         <p className="gapbanner">
           {gaps} {gaps === 1 ? "state has" : "states have"} no render. A screen is not one picture:
@@ -529,19 +549,68 @@ function SketchBox() {
   );
 }
 
+/** The states, the way to compare them, and where this view is reached from. */
+function Steer({ states, state, setState, view, model, extra }) {
+  const reachedFrom = view.relations
+    .filter((r) => r.role === "Reached from")
+    .map((r) => model.views.find((v) => v.uid === r.to))
+    .filter(Boolean);
+  return (
+    <div className="steer">
+      <div className="chips">
+        {states.map((one, index) => (
+          <button
+            key={one.uid}
+            className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
+            title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
+            onClick={() => setState(index)}
+          >
+            {one.title}
+          </button>
+        ))}
+        {states.length > 1 && (
+          <button className={state === -1 ? "on" : ""} onClick={() => setState(-1)}>
+            All at once
+          </button>
+        )}
+      </div>
+      {extra}
+      {reachedFrom.length > 0 && (
+        <p className="from">
+          Reached from{" "}
+          {reachedFrom.map((v, i) => (
+            <React.Fragment key={v.uid}>
+              {i > 0 && ", "}
+              <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
+            </React.Fragment>
+          ))}
+        </p>
+      )}
+      {(view.sources ?? []).length > 0 && (
+        <p className="sources">
+          {view.sources.map((where) => <code key={where}>{where}</code>)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraft, forced }) {
   const states = statesOf(model, view, required);
   const roomy = useRoomy();
-  const [state, setState] = useState(0);
+  // ?showing=compare opens on every state at once, which is also how it is
+  // photographed.
+  const [state, setState] = useState(forced === "compare" ? -1 : 0);
   const [chosen, setChosen] = useState(0);
   const [gone, setGone] = useState({});
 
-  const here = states[Math.min(state, states.length - 1)];
+  const comparing = state === -1;
+  const here = states[Math.min(Math.max(state, 0), states.length - 1)];
   // A screen drawn light and the same screen drawn dark are the same picture to
   // anyone not reading in that theme, so only the matching ones are shown.
   const shots = inTheme(here.shots, theme).filter((shot) => !gone[shot.file]);
 
-  useEffect(() => { setState(0); setChosen(0); }, [view.uid]);
+  useEffect(() => { setState(forced === "compare" ? -1 : 0); setChosen(0); }, [view.uid, forced]);
   // A render that was missing may have been drawn since; a refresh is the moment
   // to find out rather than a reason to keep hiding it.
   useEffect(() => { setGone({}); }, [view.uid, stamp]);
@@ -556,6 +625,33 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
   // to change it, because three rows of an inch each show nothing.
   const visible = roomy ? shots : shots.slice(Math.min(chosen, Math.max(shots.length - 1, 0)),
                                               Math.min(chosen, Math.max(shots.length - 1, 0)) + 1);
+
+  // Compare lays every state side by side, one render each, which is what a
+  // review is: the states next to each other rather than clicked through.
+  if (comparing) {
+    const shown = states
+      .map((one) => ({ state: one, shot: inTheme(one.shots, theme)[0] }))
+      .filter((one) => one.shot);
+    return (
+      <div className="page">
+        <Steer states={states} state={state} setState={setState} view={view} model={model} />
+        <div className="compare">
+          {shown.map(({ state: one, shot }) => (
+            <figure key={one.uid}>
+              <figcaption>{one.title}</figcaption>
+              <img src={`${base}img/small/${shot.file}${stamp ? `?v=${stamp}` : ""}`} alt={one.title} />
+            </figure>
+          ))}
+          {states.filter((one) => one.shots.length === 0).map((one) => (
+            <figure key={one.uid} className="gap">
+              <figcaption>{one.title}</figcaption>
+              <div className="noshot">nothing renders this</div>
+            </figure>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const renders = visible.map((shot) => ({
     key: shot.file,
@@ -603,20 +699,13 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
   const panes = [...renders, { key: "talk", node: conversation }];
   return (
     <div className="page">
-      <div className="steer">
-        <div className="chips">
-          {states.map((one, index) => (
-            <button
-              key={one.uid}
-              className={`${index === state ? "on" : ""} ${one.shots.length === 0 ? "gap" : ""}`}
-              title={one.shots.length === 0 ? "no render of this state yet" : one.statement}
-              onClick={() => setState(index)}
-            >
-              {one.title}
-            </button>
-          ))}
-        </div>
-        {!roomy && shots.length > 1 && (
+      <Steer
+        states={states}
+        state={state}
+        setState={setState}
+        view={view}
+        model={model}
+        extra={!roomy && shots.length > 1 && (
           <div className="chips shapes">
             {shots.map((one, index) => (
               <button
@@ -629,18 +718,7 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
             ))}
           </div>
         )}
-        {reachedFrom.length > 0 && (
-          <p className="from">
-            Reached from{" "}
-            {reachedFrom.map((v, i) => (
-              <React.Fragment key={v.uid}>
-                {i > 0 && ", "}
-                <a href={`#/view/${slug(v.uid)}`}>{v.title}</a>
-              </React.Fragment>
-            ))}
-          </p>
-        )}
-      </div>
+      />
       <div className="work">
         {roomy ? (
           <Group orientation="horizontal" id={`viewbook.panes.${panes.length}`}>

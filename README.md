@@ -79,11 +79,24 @@ own. `viewbook.json` names the states every view is expected to have:
 
     "states": ["Empty", "Failed"]
 
+A view that has other states says so itself, and a view that has none says that too:
+
+    "states": ["Empty", "Failed", "Cooling down"]   # this view, not the book's list
+    "states": []                                    # a static screen: no loading, no failure
+
+A state may be called whatever the app calls it and still count, by naming which required state it
+is:
+
+    { "title": "No tags yet", "kind": "Empty", ... }
+
 The page then lists them as chips, each with its own render, and a state nothing renders is listed
-anyway, dashed and in the colour of something missing. The index counts them. So does the command
-line, which is how a build is held to it:
+anyway, dashed and in the colour of something missing. The index counts them, and says when a view
+is missing a required state while carrying one that counts for nothing. So does the command line,
+which is how a build is held to it:
 
     viewbook --gaps path/to/model     # prints "Results: Empty", exits 1 when any are missing
+
+Mind the pipe: `viewbook --gaps model | tail` reports tail's exit status, not viewbook's.
 
 `viewbook.example.json` shows the config. Nothing in the tool knows anything about the app it is
 modelling, or what language that app is written in.
@@ -118,8 +131,17 @@ A project can say what makes them, and then the page can run it:
       "statement": "shown next to the button"
     }
 
-`dir` is relative to the model directory. The command's output is on the page while it runs, and
-when it finishes every open page reloads and the screenshots it shows carry the moment they changed.
+`dir` is relative to the model directory, and `env` is what the command needs that this server's
+environment does not have:
+
+    "renders": {
+      "command": ["./gradlew", "renderGallery"],
+      "dir": "../..",
+      "env": { "SKIKO_RENDER_API": "SOFTWARE" }
+    }
+
+The command's output is on the page while it runs, and when it finishes every open page reloads and
+the screenshots it shows carry the moment they changed.
 
 The command runs in the server's environment, not in the shell it was written in, so it must reach
 for nothing outside the project's own toolchain: a gradle wrapper, a script in the repository, a

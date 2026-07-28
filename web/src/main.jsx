@@ -332,14 +332,17 @@ function statesOf(model, view, required) {
   const shown = own.map((state) => ({
     uid: state.uid,
     title: state.title,
+    kind: state.kind,
     statement: state.statement,
     shots: rendersOf(state),
   }));
 
   // A state the project promised in its config but has not modelled at all is
   // still a state this view can be in, and the gap is the point.
-  const named = new Set(shown.map((state) => state.title.toLowerCase()));
-  const missing = (required ?? [])
+  const named = new Set(shown.flatMap((state) =>
+    [state.title, state.kind].filter(Boolean).map((word) => word.toLowerCase())));
+  const wanted = Array.isArray(view.states) ? view.states : (required ?? []);
+  const missing = wanted
     .filter((title) => !named.has(String(title).toLowerCase()))
     .map((title) => ({ uid: `${view.uid}-${title}`, title, shots: [], promised: true }));
 
@@ -430,6 +433,11 @@ function IndexPage({ views, model, stamp, renders, theme, required }) {
               <span>{one.why}</span>
             </p>
           ))}
+        </div>
+      )}
+      {check.hints?.length > 0 && (
+        <div className="trouble hints">
+          {check.hints.map((one) => <p key={one}><strong>{one}</strong></p>)}
         </div>
       )}
       {gaps > 0 && (

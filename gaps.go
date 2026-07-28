@@ -25,7 +25,6 @@ func (s *Server) Gaps() []Gap {
 	views, _ := model["views"].([]any)
 	states, _ := model["states"].([]any)
 	declared := s.config()
-	required := declared.States
 	shapes := declared.Shapes
 
 	var gaps []Gap
@@ -40,6 +39,14 @@ func (s *Server) Gaps() []Gap {
 			title = uid
 		}
 		gaps = append(gaps, missing(title, "as it is", rendersIn(view), shapes)...)
+
+		// A view may name its own states, and naming none means none: a screen
+		// fed synchronously has no loading and no failure, and a book that
+		// insists otherwise reports gaps that can never be closed honestly.
+		required := declared.States
+		if own, ok := statesWanted(view); ok {
+			required = own
+		}
 
 		drawn := map[string]bool{}
 		for _, another := range states {
@@ -137,4 +144,21 @@ func rendersIn(entry map[string]any) []string {
 		files = append(files, file)
 	}
 	return files
+}
+
+
+// statesWanted is the states a view says it can be in, and whether it said.
+// An empty list is an answer: this screen has none.
+func statesWanted(view map[string]any) ([]string, bool) {
+	listed, ok := view["states"].([]any)
+	if !ok {
+		return nil, false
+	}
+	wanted := make([]string, 0, len(listed))
+	for _, one := range listed {
+		if named, ok := one.(string); ok {
+			wanted = append(wanted, named)
+		}
+	}
+	return wanted, true
 }

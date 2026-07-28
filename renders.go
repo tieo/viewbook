@@ -28,9 +28,14 @@ const runTimeout = 20 * time.Minute
 // its screens with. Viewbook runs it and shows what came out; what it does is
 // entirely the project's business.
 type Renders struct {
-	Command   []string `json:"command"`
-	Dir       string   `json:"dir,omitempty"`
-	Statement string   `json:"statement,omitempty"`
+	Command []string `json:"command"`
+	Dir     string   `json:"dir,omitempty"`
+	// Env is what the command needs that this server's environment does not
+	// have: a library path, a rendering backend, a headless flag. The command
+	// runs where the server runs, not in the shell it was written in, and this
+	// is where a project says what that costs it.
+	Env       map[string]string `json:"env,omitempty"`
+	Statement string            `json:"statement,omitempty"`
 }
 
 // run is what happened, or is happening, the last time the renders were made.
@@ -144,6 +149,10 @@ func (s *Server) startRenders(declared *Renders) bool {
 		defer stop()
 		command := exec.CommandContext(ctx, declared.Command[0], declared.Command[1:]...)
 		command.Dir = dir
+		command.Env = os.Environ()
+		for name, value := range declared.Env {
+			command.Env = append(command.Env, name+"="+value)
+		}
 		command.Stdout = &s.making
 		command.Stderr = &s.making
 		err := command.Run()

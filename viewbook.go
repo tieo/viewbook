@@ -481,7 +481,62 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"trouble": trouble, "gaps": s.Gaps()})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"trouble": trouble,
+		"gaps":    s.Gaps(),
+		"hints":   s.hints(),
+	})
+}
+
+// hints are the near misses: a view missing a required state while carrying a
+// state of its own that nothing else accounts for. Calling an empty state "No
+// tags" is reasonable and silently does not count, which is the worst way for a
+// contract to be enforced.
+func (s *Server) hints() []string {
+	model := readModel(s.path("model.json"))
+	views, _ := model["views"].([]any)
+	states, _ := model["states"].([]any)
+	required := s.config().States
+
+	said := []string{}
+	for _, one := range views {
+		view, ok := one.(map[string]any)
+		if !ok {
+			continue
+		}
+		uid, _ := view["uid"].(string)
+		title, _ := view["title"].(string)
+		wanted := required
+		if own, ok := statesWanted(view); ok {
+			wanted = own
+		}
+
+		named := map[string]bool{}
+		spare := []string{}
+		for _, another := range states {
+			state, ok := another.(map[string]any)
+			if !ok || !stateOf(state, uid) {
+				continue
+			}
+			has, _ := state["title"].(string)
+			kind, _ := state["kind"].(string)
+			named[strings.ToLower(has)] = true
+			if kind != "" {
+				named[strings.ToLower(kind)] = true
+				continue
+			}
+			spare = append(spare, has)
+		}
+		for _, want := range wanted {
+			if named[strings.ToLower(want)] || len(spare) == 0 {
+				continue
+			}
+			said = append(said, fmt.Sprintf(
+				"%s has no state called %q, and has %q, which counts for nothing. Either rename it, or give it \"kind\": %q.",
+				title, want, spare[0], want))
+		}
+	}
+	return said
 }
 
 // tell hands each change to whoever is working on this project.

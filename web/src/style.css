@@ -876,4 +876,6 @@ textarea.ask { min-height: 0; }
 .trouble p { margin: 0 0 6px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .trouble p:last-child { margin: 0; }
 .trouble strong { color: var(--broken); }
+.trouble.hints { border-color: var(--missing); }
+.trouble.hints strong { color: var(--missing); font-weight: 400; }
 .trouble span { color: var(--quiet); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }

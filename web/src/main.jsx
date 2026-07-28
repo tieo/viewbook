@@ -676,7 +676,11 @@ function Ask({ about, looking }) {
     const attached = shots.map((s) => `\n${s.path}`).join("");
     // Which render is on screen, and whether it is light or dark, travels with
     // the message: otherwise the answer is about a picture nobody is looking at.
-    const at = about ? `About ${about}${looking ? ` (${looking})` : ""}: ` : "";
+    //
+    // A command is not a question about the view. It goes as typed, because
+    // "About A view: /doner off" is prose, and /doner off is a command.
+    const command = message.startsWith("/");
+    const at = about && !command ? `About ${about}${looking ? ` (${looking})` : ""}: ` : "";
     const said = at + message + attached;
     sendOnce(said, 3);
   };

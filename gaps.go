@@ -38,7 +38,13 @@ func (s *Server) Gaps() []Gap {
 		if title == "" {
 			title = uid
 		}
-		gaps = append(gaps, missing(title, "as it is", rendersIn(view), shapes)...)
+		// A screen has no appearance apart from the state it is in. When its states
+		// carry the pictures, the view needs none of its own: asking for a separate
+		// one asks for a picture that cannot exist, and any answer to it is a copy
+		// of a state's.
+		if !statesDraw(states, uid) {
+			gaps = append(gaps, missing(title, "as it is", rendersIn(view), shapes)...)
+		}
 
 		// A view may name its own states, and naming none means none: a screen
 		// fed synchronously has no loading and no failure, and a book that

@@ -70,8 +70,16 @@ func (s *Server) Findings() []Finding {
 		}
 
 		// Every picture of this view, with the state it is meant to show.
+		//
+		// The view's own picture is one of its states, not a state of its own: a
+		// screen drawn from one sealed state has no appearance outside those
+		// states, so comparing the view against them reported every honest book
+		// as a duplicate. It is compared only when it is the only picture there
+		// is, which is the case for a screen nobody has modelled states for.
 		shown := map[string][]string{} // state -> files
-		shown["as it is"] = rendersIn(view)
+		if !statesDraw(states, uid) {
+			shown["as it is"] = rendersIn(view)
+		}
 		for _, another := range states {
 			state, ok := another.(map[string]any)
 			if !ok || !stateOf(state, uid) {

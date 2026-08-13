@@ -385,7 +385,11 @@ function statesOf(model, view, required) {
   const own = model.states.filter((state) =>
     state.relations?.some((r) => r.to === view.uid && r.role === "State of"));
 
-  const asItIs = { uid: `${view.uid}-DEFAULT`, title: "Default", shots: rendersOf(view) };
+  // A view whose states carry the pictures needs no picture of its own, so it
+  // gets no chip of its own either: a screen has no appearance apart from the
+  // state it is in, and an empty "Default" would read as a missing render.
+  const viewsOwn = rendersOf(view);
+  const asItIs = { uid: `${view.uid}-DEFAULT`, title: "Default", shots: viewsOwn };
   const shown = own.map((state) => ({
     uid: state.uid,
     title: state.title,
@@ -408,6 +412,8 @@ function statesOf(model, view, required) {
 
   // Every state the model knows of is listed whether or not anything renders
   // it. Hiding the unrendered ones would hide exactly what this is for.
+  const drawn = shown.some((state) => state.shots.length > 0);
+  if (viewsOwn.length === 0 && drawn) return [...shown, ...missing];
   return [asItIs, ...shown, ...missing];
 }
 
@@ -440,6 +446,16 @@ function inTheme(shots, theme) {
   return neutral.length > 0 ? neutral : shots;
 }
 
+/** The pictures of the first state of this view that has any. */
+function firstOfStates(model, view) {
+  for (const state of model?.states ?? []) {
+    if (!state.relations?.some((r) => r.to === view.uid && r.role === "State of")) continue;
+    const shots = rendersOf(state);
+    if (shots.length > 0) return shots;
+  }
+  return [];
+}
+
 /** Every render a view carries: one screenshot, or a list of them. */
 function rendersOf(view) {
   if (Array.isArray(view.renders) && view.renders.length > 0) {
@@ -449,9 +465,11 @@ function rendersOf(view) {
 }
 
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
-function Thumb({ view, stamp, theme }) {
+function Thumb({ view, stamp, theme, model }) {
   const [gone, setGone] = useState(false);
-  const shots = rendersOf(view);
+  // The card shows the view's own picture, or the first one any of its states
+  // has: a screen whose states carry the pictures still has a card.
+  const shots = rendersOf(view).length > 0 ? rendersOf(view) : firstOfStates(model, view);
   useEffect(() => setGone(false), [view.uid]);
   if (shots.length === 0 || gone) return <div className="noshot">nothing renders this yet</div>;
   const shot = inTheme(shots, theme)[0];
@@ -537,7 +555,7 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
           return (
             <a className="card" key={view.uid} {...go(`view/${slug(view.uid)}`)}>
               <div className="shot">
-                <Thumb view={view} stamp={stamp} theme={theme} />
+                <Thumb view={view} stamp={stamp} theme={theme} model={model} />
               </div>
               <div className="card-body">
                 <h2>{view.title}</h2>

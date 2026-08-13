@@ -173,3 +173,19 @@ func statesWanted(view map[string]any) ([]string, bool) {
 	}
 	return wanted, true
 }
+
+
+// statesDraw is whether any state of this view carries a render, which is what
+// makes a view's own picture unnecessary rather than missing.
+func statesDraw(states []any, uid string) bool {
+	for _, one := range states {
+		state, ok := one.(map[string]any)
+		if !ok || !stateOf(state, uid) {
+			continue
+		}
+		if len(rendersIn(state)) > 0 {
+			return true
+		}
+	}
+	return false
+}

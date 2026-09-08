@@ -489,16 +489,19 @@ function rendersOf(view) {
 
 /** A thumbnail, cropped when it is a tall screen and shown whole when it is wide. */
 function Thumb({ view, stamp, theme, model }) {
-  const [gone, setGone] = useState(false);
-  // The card shows the view's own picture, or the first one any of its states
-  // has: a screen whose states carry the pictures still has a card.
-  const shots = rendersOf(view).length > 0 ? rendersOf(view) : firstOfStates(model, view);
-  useEffect(() => setGone(false), [view.uid]);
-  if (shots.length === 0 || gone) return <div className="noshot">nothing renders this yet</div>;
-  const shot = inTheme(shots, theme)[0];
+  const [gone, setGone] = useState(0);
+  // The card shows the view's own picture, and otherwise the first one any of
+  // its states has: a screen whose states carry the pictures still has a card,
+  // and so does one that names a picture nobody drew, since the model naming a
+  // file is not the same as the file being there.
+  const own = inTheme(rendersOf(view), theme);
+  const shots = [...own, ...inTheme(firstOfStates(model, view), theme)];
+  useEffect(() => setGone(0), [view.uid, stamp]);
+  const shot = shots[gone];
+  if (!shot) return <div className="noshot">nothing renders this yet</div>;
   return (
     <img
-      onError={() => setGone(true)}
+      onError={() => setGone((at) => at + 1)}
       src={`${base}img/card/${shot.file}${stamp ? `?v=${stamp}` : ""}`}
       alt={view.title}
       loading="lazy"

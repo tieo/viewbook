@@ -63,8 +63,11 @@ func (s *Server) Gaps() []Gap {
 		// A screen has no appearance apart from the state it is in. When its states
 		// carry the pictures, the view needs none of its own: asking for a separate
 		// one asks for a picture that cannot exist, and any answer to it is a copy
-		// of a state's.
-		if !statesDraw(states, uid) {
+		// of a state's. A file it names anyway still has to be there, because a
+		// name with nothing behind it is a card that says nothing renders this.
+		if statesDraw(states, uid) {
+			gaps = append(gaps, s.absent(title, "as it is", rendersIn(view))...)
+		} else {
 			gaps = append(gaps, s.missing(title, "as it is", rendersIn(view), shapes)...)
 		}
 
@@ -144,12 +147,7 @@ func (s *Server) missing(view, state string, files, shapes []string) []Gap {
 	if len(files) == 0 {
 		return []Gap{{View: view, State: state, Why: whyNothing}}
 	}
-	var gaps []Gap
-	for _, file := range files {
-		if !s.drawn(file) {
-			gaps = append(gaps, Gap{View: view, State: state, File: file, Why: whyNotThere})
-		}
-	}
+	gaps := s.absent(view, state, files)
 	for _, shape := range shapes {
 		drawn := false
 		for _, file := range files {
@@ -160,6 +158,17 @@ func (s *Server) missing(view, state string, files, shapes []string) []Gap {
 		}
 		if !drawn {
 			gaps = append(gaps, Gap{View: view, State: state, Shape: shape, Why: whyShape})
+		}
+	}
+	return gaps
+}
+
+// absent is the renders an entry names that img/ does not hold.
+func (s *Server) absent(view, state string, files []string) []Gap {
+	var gaps []Gap
+	for _, file := range files {
+		if !s.drawn(file) {
+			gaps = append(gaps, Gap{View: view, State: state, File: file, Why: whyNotThere})
 		}
 	}
 	return gaps

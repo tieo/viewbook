@@ -2,17 +2,30 @@ package viewbook
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
 
 // Gap is one state of one view that nothing renders, or one shape of it that
-// nothing draws.
+// nothing draws, together with why it counts as a gap.
 type Gap struct {
 	View  string `json:"view"`
 	State string `json:"state"`
 	Shape string `json:"shape,omitempty"`
+	File  string `json:"file,omitempty"`
+	Why   string `json:"why"`
 }
+
+// What a gap is short of. A row that only names a view and a state says the
+// same thing about a missing picture, a picture that was never written to disk
+// and a state attached to nothing, and those want different repairs.
+const (
+	whyNothing  = "nothing renders it"
+	whyShape    = "nothing renders it in this shape"
+	whyNotThere = "the render it declares is not in img/"
+	whyNoState  = "the model has no such state of this view"
+)
 
 // Gaps is every state a book says a screen can be in that no render shows.
 //
@@ -26,6 +39,15 @@ func (s *Server) Gaps() []Gap {
 	states, _ := model["states"].([]any)
 	declared := s.config()
 	shapes := declared.Shapes
+
+	named := map[string]bool{}
+	for _, one := range views {
+		if view, ok := one.(map[string]any); ok {
+			if uid, ok := view["uid"].(string); ok {
+				named[uid] = true
+			}
+		}
+	}
 
 	var gaps []Gap
 	for _, one := range views {
@@ -43,7 +65,7 @@ func (s *Server) Gaps() []Gap {
 		// one asks for a picture that cannot exist, and any answer to it is a copy
 		// of a state's.
 		if !statesDraw(states, uid) {
-			gaps = append(gaps, missing(title, "as it is", rendersIn(view), shapes)...)
+			gaps = append(gaps, s.missing(title, "as it is", rendersIn(view), shapes)...)
 		}
 
 		// A view may name its own states, and naming none means none: a screen
@@ -60,8 +82,8 @@ func (s *Server) Gaps() []Gap {
 			if !ok || !stateOf(state, uid) {
 				continue
 			}
-			named, _ := state["title"].(string)
-			drawn[strings.ToLower(named)] = true
+			called, _ := state["title"].(string)
+			drawn[strings.ToLower(called)] = true
 			if kind, _ := state["kind"].(string); kind != "" {
 				drawn[strings.ToLower(kind)] = true
 			}
@@ -73,16 +95,37 @@ func (s *Server) Gaps() []Gap {
 			if drawable, said := state["drawable"].(bool); said && !drawable {
 				continue
 			}
-			gaps = append(gaps, missing(title, named, rendersIn(state), shapes)...)
+			gaps = append(gaps, s.missing(title, called, rendersIn(state), shapes)...)
 		}
 		// A state the config asks every view to have, which this view does not
 		// even model, is the same gap one step earlier.
 		for _, wanted := range required {
 			if !drawn[strings.ToLower(wanted)] {
-				gaps = append(gaps, Gap{View: title, State: wanted})
+				gaps = append(gaps, Gap{View: title, State: wanted, Why: whyNoState})
 			}
 		}
 	}
+
+	// A state that belongs to no view is not a state of anything, and it is
+	// reported on its own rather than under a view: printing it under one is
+	// what makes a relation nobody read look like a relation that worked, and
+	// sends the reader looking for a render instead of at the relation.
+	for _, one := range states {
+		state, ok := one.(map[string]any)
+		if !ok {
+			continue
+		}
+		why := loose(state, named)
+		if why == "" {
+			continue
+		}
+		called, _ := state["title"].(string)
+		if called == "" {
+			called, _ = state["uid"].(string)
+		}
+		gaps = append(gaps, Gap{State: called, Why: why})
+	}
+
 	sort.Slice(gaps, func(i, j int) bool {
 		if gaps[i].View != gaps[j].View {
 			return gaps[i].View < gaps[j].View
@@ -95,13 +138,18 @@ func (s *Server) Gaps() []Gap {
 	return gaps
 }
 
-// missing is what a state is short of: a render at all, or a render in each
-// shape the book says its screens come in.
-func missing(view, state string, files, shapes []string) []Gap {
+// missing is what a state is short of: a render at all, a render that is on
+// disk, or a render in each shape the book says its screens come in.
+func (s *Server) missing(view, state string, files, shapes []string) []Gap {
 	if len(files) == 0 {
-		return []Gap{{View: view, State: state}}
+		return []Gap{{View: view, State: state, Why: whyNothing}}
 	}
 	var gaps []Gap
+	for _, file := range files {
+		if !s.drawn(file) {
+			gaps = append(gaps, Gap{View: view, State: state, File: file, Why: whyNotThere})
+		}
+	}
 	for _, shape := range shapes {
 		drawn := false
 		for _, file := range files {
@@ -111,30 +159,90 @@ func missing(view, state string, files, shapes []string) []Gap {
 			}
 		}
 		if !drawn {
-			gaps = append(gaps, Gap{View: view, State: state, Shape: shape})
+			gaps = append(gaps, Gap{View: view, State: state, Shape: shape, Why: whyShape})
 		}
 	}
 	return gaps
+}
+
+// drawn is whether a declared render is on disk, under img/ or as one of the
+// sized copies a project may keep beside it.
+func (s *Server) drawn(file string) bool {
+	for _, at := range []string{s.path("img", file), s.path("img", "small", file), s.path("img", "card", file)} {
+		if _, err := os.Stat(at); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// loose is why a state is a state of no view, and empty when it is a state of
+// one. The role and the uid are quoted back because both are written by hand
+// and both fail the same silent way.
+func loose(state map[string]any, views map[string]bool) string {
+	relations, _ := state["relations"].([]any)
+	unknownRole, unknownView := "", ""
+	for _, one := range relations {
+		relation, ok := one.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := relation["role"].(string)
+		to, _ := relation["to"].(string)
+		if !sameRole(role, roleStateOf) {
+			if unknownRole == "" && !knownRole(role) {
+				unknownRole = role
+			}
+			continue
+		}
+		if views[to] {
+			return ""
+		}
+		unknownView = to
+	}
+	if unknownView != "" {
+		return fmt.Sprintf("it is a state of %q, which is no view's uid", unknownView)
+	}
+	if unknownRole != "" {
+		return fmt.Sprintf("its relation role %q is not one of %s", unknownRole, strings.Join(rolesKnown, ", "))
+	}
+	return "no relation says which view it is a state of"
 }
 
 // Said is the gaps as lines, for a command that has to report them.
 func Said(gaps []Gap) string {
 	var out strings.Builder
 	for _, gap := range gaps {
+		where := gap.State
+		if gap.View != "" {
+			where = gap.View + ": " + gap.State
+		}
 		if gap.Shape != "" {
-			fmt.Fprintf(&out, "%s: %s, %s\n", gap.View, gap.State, gap.Shape)
+			where += ", " + gap.Shape
+		}
+		if gap.File != "" {
+			where += ", " + gap.File
+		}
+		if gap.Why == "" {
+			fmt.Fprintf(&out, "%s\n", where)
 			continue
 		}
-		fmt.Fprintf(&out, "%s: %s\n", gap.View, gap.State)
+		fmt.Fprintf(&out, "%s (%s)\n", where, gap.Why)
 	}
 	return out.String()
+}
+
+func stateOfRole(relation map[string]any, uid string) bool {
+	to, _ := relation["to"].(string)
+	role, _ := relation["role"].(string)
+	return to == uid && sameRole(role, roleStateOf)
 }
 
 func stateOf(state map[string]any, uid string) bool {
 	relations, _ := state["relations"].([]any)
 	for _, one := range relations {
 		relation, ok := one.(map[string]any)
-		if ok && relation["to"] == uid && relation["role"] == "State of" {
+		if ok && stateOfRole(relation, uid) {
 			return true
 		}
 	}
@@ -163,7 +271,6 @@ func rendersIn(entry map[string]any) []string {
 	return files
 }
 
-
 // statesWanted is the states a view says it can be in, and whether it said.
 // An empty list is an answer: this screen has none.
 func statesWanted(view map[string]any) ([]string, bool) {
@@ -179,7 +286,6 @@ func statesWanted(view map[string]any) ([]string, bool) {
 	}
 	return wanted, true
 }
-
 
 // statesDraw is whether any state of this view carries a render, which is what
 // makes a view's own picture unnecessary rather than missing.

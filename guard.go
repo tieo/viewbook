@@ -1,11 +1,11 @@
 package viewbook
 
 import (
-	"fmt"
-	"html"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"os"
@@ -145,7 +145,6 @@ func KeyAt(path string) (string, error) {
 	}
 	return key, nil
 }
-
 
 // refused is what someone sees who reached the door without the key. A blank
 // page with one sentence on it tells them they are locked out and nothing

@@ -18,8 +18,8 @@ import (
 // property of the pictures themselves, and a property can be checked without
 // being predicted.
 type Finding struct {
-	What  string `json:"what"`
-	Why   string `json:"why"`
+	What  string   `json:"what"`
+	Why   string   `json:"why"`
 	Files []string `json:"files"`
 }
 
@@ -377,7 +377,6 @@ func apart(one, two uint64) int {
 	return count
 }
 
-
 // list is a few names in a sentence: "a", "a and b", "a, b and c".
 func list(names []string) string {
 	quoted := make([]string, len(names))
@@ -393,7 +392,6 @@ func list(names []string) string {
 		return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1]
 	}
 }
-
 
 // within is whether every name in one group is in the other.
 func within(some, all []string) bool {

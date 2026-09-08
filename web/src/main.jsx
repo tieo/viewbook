@@ -96,6 +96,18 @@ function useRoomy() {
 const slug = (uid) => uid.replace(/^VIEW-/, "").toLowerCase();
 
 /**
+ * Whether a relation says the role that was meant.
+ *
+ * Case and the punctuation between the words belong to whoever wrote the model
+ * by hand, so "state_of" and "State of" are one role here. A relation dropped
+ * over a capital letter shows up as a screen with no states at all, which reads
+ * as missing renders rather than as a typo.
+ */
+const inRole = (relation, meant) =>
+  relation?.role?.toLowerCase().replace(/[^a-z]/g, "") ===
+  meant.toLowerCase().replace(/[^a-z]/g, "");
+
+/**
  * Light or dark, which is the reader's to decide.
  *
  * Nothing is stored until someone chooses, so a screen that is already dark
@@ -364,7 +376,7 @@ function NoSuchView({ what = "view" }) {
 
 function requirementsOf(model, uid) {
   const own = model.requirements.filter((r) =>
-    r.relations.some((x) => x.to === uid && x.role === "Lives in"));
+    r.relations?.some((x) => x.to === uid && inRole(x, "Lives in")));
   return {
     all: own,
     built: own.filter((r) => r.status === "Built").length,
@@ -381,9 +393,20 @@ function requirementsOf(model, uid) {
  * book that shows only the happy one is a book that lies by omission, so the
  * states a project has not rendered are shown as gaps rather than left out.
  */
+/**
+ * The states of a view that nothing draws and something should.
+ *
+ * A state the renderer cannot reach has no picture and is not missing one, so
+ * counting it says a book is short of renders it can never take, which is the
+ * opposite of what the count is for.
+ */
+function unrendered(model, view, required) {
+  return statesOf(model, view, required).filter((one) => one.shots.length === 0 && !one.undrawable);
+}
+
 function statesOf(model, view, required) {
   const own = model.states.filter((state) =>
-    state.relations?.some((r) => r.to === view.uid && r.role === "State of"));
+    state.relations?.some((r) => r.to === view.uid && inRole(r, "State of")));
 
   // A view whose states carry the pictures needs no picture of its own, so it
   // gets no chip of its own either: a screen has no appearance apart from the
@@ -449,7 +472,7 @@ function inTheme(shots, theme) {
 /** The pictures of the first state of this view that has any. */
 function firstOfStates(model, view) {
   for (const state of model?.states ?? []) {
-    if (!state.relations?.some((r) => r.to === view.uid && r.role === "State of")) continue;
+    if (!state.relations?.some((r) => r.to === view.uid && inRole(r, "State of"))) continue;
     const shots = rendersOf(state);
     if (shots.length > 0) return shots;
   }
@@ -487,7 +510,14 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
   const check = useCheck(stamp);
   const open = model.requirements.filter((r) => r.status !== "Built");
   const gaps = views.reduce(
-    (count, view) => count + statesOf(model, view, required).filter((s) => s.shots.length === 0).length, 0);
+    (count, view) => count + unrendered(model, view, required).length, 0);
+  // A state attached to no view is not on any view's page, so the only place it
+  // can be said is here. It reads as a state nobody wrote until it is said.
+  const loose = (check.gaps ?? []).filter((gap) => !gap.view);
+  // The count in the card is what a reader can see missing from a view. This is
+  // everything the same check would fail on, which also counts a state that is
+  // a state of nothing and a render the model names but img/ does not hold.
+  const unanswered = check.gaps ?? [];
   return (
     <div className="page">
       <header className="page-head">
@@ -499,7 +529,9 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
             {open.length === 0 ? "all built" : `${open.length} not built`} ·{" "}
             {gaps > 0
               ? <span className="gapcount">{gaps} states with no render</span>
-              : "every state rendered"}
+              : unanswered.length > 0
+                ? <span className="gapcount">{unanswered.length} {unanswered.length === 1 ? "gap" : "gaps"} to answer</span>
+                : "every state rendered"}
           </p>
         </div>
       </header>
@@ -524,6 +556,16 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {loose.length > 0 && (
+        <div className="trouble">
+          {loose.map((gap) => (
+            <p key={gap.state}>
+              <strong>{gap.state} is a state of no view</strong>
+              <span>{gap.why}</span>
+            </p>
+          ))}
         </div>
       )}
       {check.hints?.length > 0 && (
@@ -559,11 +601,11 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
               </div>
               <div className="card-body">
                 <h2>{view.title}</h2>
-                <p>{view.statement.split(".")[0]}.</p>
+                {view.statement && <p>{view.statement.split(".")[0]}.</p>}
                 <div className="counts">
-                  {statesOf(model, view, required).filter((s) => s.shots.length === 0).length > 0 && (
+                  {unrendered(model, view, required).length > 0 && (
                     <span className="pill missing">
-                      {statesOf(model, view, required).filter((s) => s.shots.length === 0).length} not rendered
+                      {unrendered(model, view, required).length} not rendered
                     </span>
                   )}
                   {own.built > 0 && <span className="pill built">{own.built} built</span>}
@@ -692,8 +734,8 @@ function SketchBox() {
 
 /** The states, the way to compare them, and where this view is reached from. */
 function Steer({ states, state, setState, view, model, extra }) {
-  const reachedFrom = view.relations
-    .filter((r) => r.role === "Reached from")
+  const reachedFrom = (view.relations ?? [])
+    .filter((r) => inRole(r, "Reached from"))
     .map((r) => model.views.find((v) => v.uid === r.to))
     .filter(Boolean);
   return (
@@ -763,8 +805,8 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
   useEffect(() => { setGone({}); }, [view.uid, stamp]);
 
   const named = (shot) => shot.label ?? shot.file.replace(/\.[a-z]+$/, "");
-  const reachedFrom = view.relations
-    .filter((r) => r.role === "Reached from")
+  const reachedFrom = (view.relations ?? [])
+    .filter((r) => inRole(r, "Reached from"))
     .map((r) => model.views.find((v) => v.uid === r.to))
     .filter(Boolean);
 
@@ -804,7 +846,9 @@ function ViewPage({ model, view, onChange, stamp, theme, required, draft, onDraf
           {states.filter((one) => one.shots.length === 0).map((one) => (
             <figure key={one.uid} className="gap">
               <figcaption>{one.title}</figcaption>
-              <div className="noshot">nothing renders this</div>
+              <div className="noshot">
+                {one.undrawable ? "this renderer cannot draw it" : "nothing renders this"}
+              </div>
             </figure>
           ))}
         </div>

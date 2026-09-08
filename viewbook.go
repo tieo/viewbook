@@ -54,7 +54,7 @@ type Server struct {
 	prefix   string
 	web      fs.FS
 	webDir   string // set when the pages come from a directory rather than the binary
-	making   run // the command that makes this project's renders, while it runs
+	making   run    // the command that makes this project's renders, while it runs
 }
 
 // Config is what a project says about its own book: what it is called, and

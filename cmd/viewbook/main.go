@@ -77,6 +77,11 @@ Next:
      {"file": "home-phone-dark.png", "label": "phone dark"}.
   4. Say what draws them, and the page gets a button that runs it:
      "renders": {"command": ["./make-renders.sh"], "dir": "../.."}
+  5. Have that command delete pictures in img/ it did not draw. A state renamed
+     leaves its old renders behind looking as current as the rest, and this
+     reports them without being able to remove them. Only sweep when the run
+     drew the whole book, when no shot failed, and when it drew anything at all:
+     the list of what it wrote has to be complete, or the sweep takes the book.
 
 Nothing is required of a view. What every render is checked for, without any
 list: that something is drawn on it, and that two states of one view are not the
@@ -86,9 +91,10 @@ same picture. A book that wants more can ask for it:
   "shapes": ["phone", "wide"]                 of every render; a terminal has one, an
                                               extension popup has one
 
-  viewbook --gaps %s   what is still missing
-  viewbook %s          read it
-`, root, root, root)
+  viewbook --gaps %s     what is still missing
+  viewbook --render %s   draw them again, and say what moved
+  viewbook %s            read it
+`, root, root, root, root)
 		}
 		return
 	}

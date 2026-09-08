@@ -48,6 +48,7 @@ viewbook --listen "127.0.0.1:$talking" --key-file "$work/key" --session-file "$w
   "$here" >"$work/talking.log" 2>&1 &
 talker=$!
 trap 'rm -rf "$work"; kill "$server" "$talker" 2>/dev/null || true' EXIT
+: > "$work/drawn"
 
 for _ in $(seq 30); do
   [ -s "$work/key" ] && curl -sf -o /dev/null "http://127.0.0.1:$port/" && break
@@ -72,8 +73,10 @@ shoot_on() {
     "http://127.0.0.1:$at$where?key=$key&static=1&theme=$theme" >/dev/null 2>&1 || true
   if [ -s "$work/$file.png" ]; then
     mv "$work/$file.png" "$here/img/$file.png"
+    echo "$file.png" >> "$work/drawn"
     echo "  $file"
   else
+    echo "$file" >> "$work/missed"
     echo "  $file: nothing was written" >&2
   fi
 }
@@ -88,8 +91,10 @@ shoot() {
     "http://127.0.0.1:$port$path?key=$key&static=1${theme:+&theme=$theme}$hash" >/dev/null 2>&1 || true
   if [ -s "$work/$file.png" ]; then
     mv "$work/$file.png" "$here/img/$file.png"
+    echo "$file.png" >> "$work/drawn"
     echo "  $file"
   else
+    echo "$file" >> "$work/missed"
     echo "  $file: nothing was written" >&2
     return 1
   fi
@@ -144,5 +149,29 @@ STATES
   shoot_on "$talking" "view-talking-wide-$theme" "/view/table" 1180 760 "$theme"
   shoot_on "$talking" "view-talking-tall-$theme" "/view/table" 430 932 "$theme"
 done
+
+# A picture this run did not draw is a picture of a screen that is no longer in
+# the book, and it stays behind looking as current as the rest. Sweeping is only
+# honest because this script draws the whole book every time: a run that drew
+# part of it would delete the rest. A run that failed to draw something says so
+# and sweeps nothing, since the file it would remove is the good picture.
+if [ -s "${work}/missed" ]; then
+  echo "$(wc -l < "$work/missed") shots failed, so nothing was swept" >&2
+else
+  swept=0
+  for held in "$here"/img/*.png; do
+    [ -e "$held" ] || continue
+    if ! grep -qxF "$(basename "$held")" "$work/drawn"; then
+      rm "$held"
+      echo "  swept $(basename "$held")"
+      swept=$((swept + 1))
+    fi
+  done
+  if [ "$swept" -eq 1 ]; then
+    echo "1 picture nothing draws any more was removed"
+  elif [ "$swept" -gt 1 ]; then
+    echo "$swept pictures nothing draws any more were removed"
+  fi
+fi
 
 echo "done"

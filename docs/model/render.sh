@@ -119,18 +119,24 @@ VIEWS
 # The states a screen here can be in, which the page will show on demand so they
 # can be photographed: waiting for the model, holding nothing, and failing to
 # read it. A book that demands these of every project draws its own.
+# Each page is drawn in the states the model says it has and in no others: the
+# list of books cannot be forced into a state at all, a sketch is never empty,
+# and drawing those anyway leaves pictures in img/ that nothing in the book
+# names.
 echo "rendering the states"
 for theme in light dark; do
-  for state in loading empty failed attached; do
-    for page in "index:#/" "view:#/view/table" "table:#/table/endpoints" "sketch:#/sketch/scratch"; do
-      name="${page%%:*}"
-      hash="${page#*:}"
-      shoot "$name-$state-wide-$theme" "$book" "&showing=$state$hash" 1180 760 "$theme"
-      shoot "$name-$state-tall-$theme" "$book" "&showing=$state$hash" 430 932 "$theme"
+  while read -r name path states; do
+    [ -z "$name" ] && continue
+    for state in $states; do
+      shoot "$name-$state-wide-$theme" "$book" "&showing=$state$path" 1180 760 "$theme"
+      shoot "$name-$state-tall-$theme" "$book" "&showing=$state$path" 430 932 "$theme"
     done
-    shoot "books-$state-wide-$theme" "/" "&showing=$state" 1180 760 "$theme"
-    shoot "books-$state-tall-$theme" "/" "&showing=$state" 430 932 "$theme"
-  done
+  done <<'STATES'
+index #/ loading empty failed
+view #/view/table loading empty failed attached
+table #/table/endpoints loading empty failed
+sketch #/sketch/scratch loading failed
+STATES
 
   # A book whose views have no renders, and a view with a conversation in it.
   shoot "index-bare-wide-$theme" "/bare/" "#/" 1180 760 "$theme"

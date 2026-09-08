@@ -556,6 +556,12 @@ function IndexPage({ views, model, stamp, renders, theme, required, draft, onDra
               <li key={one.what}>
                 <strong>{one.what}</strong>
                 <p>{one.why}</p>
+                {one.files?.length > 0 && (
+                  <p className="files">
+                    {one.files.slice(0, 8).map((file) => <span key={file}>{file}</span>)}
+                    {one.files.length > 8 && <span>and {one.files.length - 8} more</span>}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

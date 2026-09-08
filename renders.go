@@ -3,12 +3,16 @@ package viewbook
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -139,20 +143,11 @@ func (s *Server) startRenders(declared *Renders) bool {
 	s.making.cancel = stop
 	s.making.Unlock()
 
-	dir := s.Root
-	if declared.Dir != "" {
-		dir = filepath.Join(s.Root, declared.Dir)
-	}
-	fmt.Fprintf(&s.making, "%s\nin %s\n\n", strings.Join(declared.Command, " "), dir)
+	command := s.drawing(ctx, declared)
+	fmt.Fprintf(&s.making, "%s\nin %s\n\n", strings.Join(declared.Command, " "), command.Dir)
 
 	go func() {
 		defer stop()
-		command := exec.CommandContext(ctx, declared.Command[0], declared.Command[1:]...)
-		command.Dir = dir
-		command.Env = os.Environ()
-		for name, value := range declared.Env {
-			command.Env = append(command.Env, name+"="+value)
-		}
 		command.Stdout = &s.making
 		command.Stderr = &s.making
 		err := command.Run()
@@ -180,4 +175,125 @@ func (s *Server) startRenders(declared *Renders) bool {
 		s.changed()
 	}()
 	return true
+}
+
+// drawing is the declared command ready to run: the project's own directory and
+// the environment it says it needs, whether the page's button starts it or a
+// terminal does.
+func (s *Server) drawing(ctx context.Context, declared *Renders) *exec.Cmd {
+	dir := s.Root
+	if declared.Dir != "" {
+		dir = filepath.Join(s.Root, declared.Dir)
+	}
+	command := exec.CommandContext(ctx, declared.Command[0], declared.Command[1:]...)
+	command.Dir = dir
+	command.Env = os.Environ()
+	for name, value := range declared.Env {
+		command.Env = append(command.Env, name+"="+value)
+	}
+	return command
+}
+
+// Drawn is what running the project's own command did to the pictures in img/.
+type Drawn struct {
+	Changed []string `json:"changed"`
+	Added   []string `json:"added"`
+	Gone    []string `json:"gone"`
+}
+
+// Touched is how many pictures the run was not in agreement with.
+//
+// Zero is the answer a committed book should give: the pictures on disk are
+// what the app draws today. Anything else means the book was describing an app
+// that has moved, which is invisible in a way a missing render is not.
+func (d Drawn) Touched() int { return len(d.Changed) + len(d.Added) + len(d.Gone) }
+
+// Draw runs the command this project declares and answers what it changed.
+//
+// A book goes stale silently: every picture is there, every state has one, and
+// each shows an app as it was whenever somebody last ran the renders by hand.
+// The command is the project's, so this only reports what it did.
+//
+// What comes back is for a person to read and not for a build to fail on. Two
+// machines drawing the same screen do not agree on the pixels: a font stack
+// resolves differently, and every box on the page then comes out a different
+// size, so a picture can be current and still differ from the one committed. A
+// gate on that is red for a reason nobody can fix, and gets deleted along with
+// whatever real check sat next to it.
+func (s *Server) Draw(ctx context.Context, out io.Writer) (Drawn, error) {
+	declared := s.config().Renders
+	if declared == nil || len(declared.Command) == 0 {
+		return Drawn{}, errors.New("this book does not say what makes its renders")
+	}
+	before, err := s.pictures()
+	if err != nil {
+		return Drawn{}, err
+	}
+	command := s.drawing(ctx, declared)
+	command.Stdout = out
+	command.Stderr = out
+	fmt.Fprintf(out, "%s\nin %s\n\n", strings.Join(declared.Command, " "), command.Dir)
+	run := command.Run()
+	if errors.Is(run, exec.ErrNotFound) {
+		fmt.Fprintf(out, "\n%v\nPATH was %s\n", run, os.Getenv("PATH"))
+	}
+	after, err := s.pictures()
+	if err != nil {
+		return Drawn{}, err
+	}
+	return whatChanged(before, after), run
+}
+
+// pictures is every file under img/ by name, each with a fingerprint of what is
+// in it, so a rerun that draws the same thing is not read as a change.
+func (s *Server) pictures() (map[string][32]byte, error) {
+	held := map[string][32]byte{}
+	root := s.path("img")
+	err := filepath.WalkDir(root, func(at string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) && at == root {
+				return nil
+			}
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		body, err := os.ReadFile(at)
+		if err != nil {
+			return err
+		}
+		name, err := filepath.Rel(root, at)
+		if err != nil {
+			return err
+		}
+		held[name] = sha256.Sum256(body)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return held, nil
+}
+
+func whatChanged(before, after map[string][32]byte) Drawn {
+	drawn := Drawn{}
+	for name, now := range after {
+		was, had := before[name]
+		switch {
+		case !had:
+			drawn.Added = append(drawn.Added, name)
+		case was != now:
+			drawn.Changed = append(drawn.Changed, name)
+		}
+	}
+	for name := range before {
+		if _, still := after[name]; !still {
+			drawn.Gone = append(drawn.Gone, name)
+		}
+	}
+	sort.Strings(drawn.Changed)
+	sort.Strings(drawn.Added)
+	sort.Strings(drawn.Gone)
+	return drawn
 }

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -26,6 +27,7 @@ func main() {
 		"file whose contents are shown as the conversation; for rendering the states that have one")
 	start := flag.Bool("init", false, "write a book that works into the given directory and exit")
 	gaps := flag.Bool("gaps", false, "list what is missing and what the renders say, and exit non-zero when a declared state has no render")
+	draw := flag.Bool("render", false, "run the command the book declares makes its renders, in the directory it declares, then say which pictures it changed")
 	strict := flag.Bool("strict", false, "with --gaps, also exit non-zero when the renders say something")
 	asJSON := flag.Bool("json", false, "with --gaps, write what was found as JSON on stdout")
 	keyFile := flag.String("key-file", defaultKeyPath(),
@@ -91,6 +93,42 @@ same picture. A book that wants more can ask for it:
 		return
 	}
 
+	// A book goes stale without saying so: every picture is where the model says
+	// it is, and each shows the app as it was the last time somebody ran the
+	// renders by hand. Running them here says which ones moved.
+	if *draw {
+		for _, dir := range flag.Args() {
+			root, err := filepath.Abs(dir)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			server := &viewbook.Server{Root: root}
+			drawn, err := server.Draw(context.Background(), os.Stdout)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "viewbook:", err)
+				os.Exit(1)
+			}
+			for _, one := range []struct {
+				what  string
+				files []string
+			}{{"redrawn", drawn.Changed}, {"new", drawn.Added}, {"gone", drawn.Gone}} {
+				for _, file := range one.files {
+					fmt.Printf("%s: %s\n", one.what, file)
+				}
+			}
+			if drawn.Touched() == 0 {
+				fmt.Println("the pictures already showed what the app draws")
+				continue
+			}
+			fmt.Printf("%s changed; look at %s and commit what is right\n",
+				count(drawn.Touched(), "picture"), them(drawn.Touched()))
+		}
+		if !*gaps {
+			return
+		}
+	}
+
 	// Held to its own list: a project's build can run this and fail on a screen
 	// whose empty or failed state nobody has ever drawn.
 	if *gaps {
@@ -125,6 +163,15 @@ same picture. A book that wants more can ask for it:
 			findings := server.Findings()
 			for _, finding := range findings {
 				fmt.Printf("%s\n  %s\n", finding.What, finding.Why)
+				// The files are the finding: a name to look at beats a sentence
+				// about pictures the reader cannot pick out of a directory.
+				for at, file := range finding.Files {
+					if at == 6 && len(finding.Files) > 8 {
+						fmt.Printf("  and %d more\n", len(finding.Files)-at)
+						break
+					}
+					fmt.Printf("  %s\n", file)
+				}
 			}
 			if *strict {
 				found += len(findings)

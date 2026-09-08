@@ -192,8 +192,53 @@ func (s *Server) Findings() []Finding {
 			})
 		}
 	}
+	if spare := s.unnamed(views, states); len(spare) > 0 {
+		found = append(found, Finding{
+			What: fmt.Sprintf("img/ holds %d %s nothing in the model names", len(spare),
+				map[bool]string{true: "picture", false: "pictures"}[len(spare) == 1]),
+			Why: "a picture nobody names is a picture nobody sees: a state that was renamed and left " +
+				"its old renders behind, or a screen the command draws that the book never mentions. " +
+				"Unlike the pixels, this is the same answer on any machine",
+			Files: spare,
+		})
+	}
 	sort.Slice(found, func(i, j int) bool { return found[i].What < found[j].What })
 	return found
+}
+
+// unnamed is every picture in img/ that no view and no state declares.
+//
+// The sized copies a project keeps in img/small and img/card are the same
+// pictures under another path, so only what sits directly in img/ is counted.
+func (s *Server) unnamed(views, states []any) []string {
+	named := map[string]bool{}
+	for _, group := range [][]any{views, states} {
+		for _, one := range group {
+			entry, ok := one.(map[string]any)
+			if !ok {
+				continue
+			}
+			for _, file := range rendersIn(entry) {
+				named[file] = true
+			}
+		}
+	}
+	held, err := os.ReadDir(s.path("img"))
+	if err != nil {
+		return nil
+	}
+	var spare []string
+	for _, entry := range held {
+		if entry.IsDir() || named[entry.Name()] {
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(entry.Name())) {
+		case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg":
+			spare = append(spare, entry.Name())
+		}
+	}
+	sort.Strings(spare)
+	return spare
 }
 
 // renderPath is where a named render actually is: img/, or the sized copies a

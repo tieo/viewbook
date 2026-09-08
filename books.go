@@ -98,8 +98,10 @@ a:hover{border-color:var(--accent)}
 a span{font-size:13px;color:var(--quiet)}
 .none{color:var(--quiet);font-size:14px}
 </style>
-<script>/* The choice made inside a book holds here too. */
-var t=localStorage.getItem("viewbook.theme");if(t)document.documentElement.setAttribute("data-theme",t);
+<script>/* The choice made inside a book holds here too, and ?theme wins over both,
+which is how a screenshot of this page in one theme is taken. */
+var q=new URLSearchParams(location.search).get("theme");
+var t=q||localStorage.getItem("viewbook.theme");if(t)document.documentElement.setAttribute("data-theme",t);
 </script></head><body><main>
 <h1>Viewbook</h1><p class="sub">A model per project: its views, what each has to do, and how each renders today.</p>
 <ul>` + rows.String() + `</ul></main></body></html>`

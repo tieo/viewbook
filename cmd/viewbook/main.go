@@ -109,10 +109,23 @@ same picture. A book that wants more can ask for it:
 				fmt.Fprintln(os.Stderr, "viewbook:", err)
 				os.Exit(1)
 			}
+			// How much a picture changed is what says whether the app moved or
+			// a letter came out a shade different.
+			for _, change := range drawn.Changed {
+				switch {
+				case change.Pixels < 0:
+					fmt.Printf("redrawn: %s, a different size\n", change.File)
+				case change.Of > 0:
+					fmt.Printf("redrawn: %s, %s of %d\n", change.File,
+						count(change.Pixels, "pixel"), change.Of)
+				default:
+					fmt.Printf("redrawn: %s\n", change.File)
+				}
+			}
 			for _, one := range []struct {
 				what  string
 				files []string
-			}{{"redrawn", drawn.Changed}, {"new", drawn.Added}, {"gone", drawn.Gone}} {
+			}{{"new", drawn.Added}, {"gone", drawn.Gone}} {
 				for _, file := range one.files {
 					fmt.Printf("%s: %s\n", one.what, file)
 				}

@@ -4,13 +4,16 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"html"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // keyCookie is where a browser keeps the key once it has been let in.
@@ -127,23 +130,56 @@ func overTLS(r *http.Request) bool {
 // KeyAt is the key kept at path, made the first time it is asked for. The file
 // is the owner's alone, so who can read it is who can open the book.
 func KeyAt(path string) (string, error) {
-	if body, err := os.ReadFile(path); err == nil {
-		if key := strings.TrimSpace(string(body)); key != "" {
-			return key, nil
-		}
+	if key, held := keyIn(path); held {
+		return key, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", err
 	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
 	}
 	key := hex.EncodeToString(raw)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	// Made by exactly one of whoever starts at once. Two servers sharing a key
+	// file each used to make a key and write it: the file ended up holding one
+	// of them, and the other server refused every browser that read it.
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err == nil {
+		defer file.Close()
+		if _, err := file.WriteString(key + "\n"); err != nil {
+			return "", err
+		}
+		return key, nil
+	}
+	if !errors.Is(err, fs.ErrExist) {
 		return "", err
 	}
+	// Somebody else is making it, and the file is empty for the moment between
+	// being created and being written to.
+	for range 50 {
+		if key, held := keyIn(path); held {
+			return key, nil
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	// A second of nobody filling it in is an empty file somebody left, not a
+	// server still writing, and refusing to serve over it would be refusing over
+	// a touched file.
 	if err := os.WriteFile(path, []byte(key+"\n"), 0o600); err != nil {
 		return "", err
 	}
 	return key, nil
+}
+
+// keyIn is the key a file holds, and whether it holds one.
+func keyIn(path string) (string, bool) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	key := strings.TrimSpace(string(body))
+	return key, key != ""
 }
 
 // refused is what someone sees who reached the door without the key. A blank

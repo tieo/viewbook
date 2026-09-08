@@ -6,6 +6,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"io/fs"
 	"net/http"
@@ -194,9 +197,20 @@ func (s *Server) drawing(ctx context.Context, declared *Renders) *exec.Cmd {
 	return command
 }
 
+// Change is one picture that came out different, and by how much.
+//
+// The size of the difference is the whole signal: two pixels on one row is a
+// letter drawn a shade differently, and half the picture is the screen doing
+// something else. Without it every rerun reads the same.
+type Change struct {
+	File   string `json:"file"`
+	Pixels int    `json:"pixels"` // -1 when the two cannot be compared pixel for pixel
+	Of     int    `json:"of"`
+}
+
 // Drawn is what running the project's own command did to the pictures in img/.
 type Drawn struct {
-	Changed []string `json:"changed"`
+	Changed []Change `json:"changed"`
 	Added   []string `json:"added"`
 	Gone    []string `json:"gone"`
 }
@@ -220,12 +234,28 @@ func (d Drawn) Touched() int { return len(d.Changed) + len(d.Added) + len(d.Gone
 // size, so a picture can be current and still differ from the one committed. A
 // gate on that is red for a reason nobody can fix, and gets deleted along with
 // whatever real check sat next to it.
+//
+// A book whose renders are stable can read any change as a change in the app.
+// One where the same few pictures come back every run is drawing something that
+// is not the app: a date, a random seed, a page that reads live content, or a
+// book that photographs its own pages and so shows its last renders inside its
+// next ones. That is worth chasing rather than shrugging at, and it has found a
+// real bug here.
 func (s *Server) Draw(ctx context.Context, out io.Writer) (Drawn, error) {
 	declared := s.config().Renders
 	if declared == nil || len(declared.Command) == 0 {
 		return Drawn{}, errors.New("this book does not say what makes its renders")
 	}
 	before, err := s.pictures()
+	if err != nil {
+		return Drawn{}, err
+	}
+	// The pictures as they were, kept aside so the ones that come out different
+	// can be held against what they were rather than only counted.
+	kept, err := s.keepPictures()
+	if kept != "" {
+		defer os.RemoveAll(kept)
+	}
 	if err != nil {
 		return Drawn{}, err
 	}
@@ -241,7 +271,78 @@ func (s *Server) Draw(ctx context.Context, out io.Writer) (Drawn, error) {
 	if err != nil {
 		return Drawn{}, err
 	}
-	return whatChanged(before, after), run
+	drawn := whatChanged(before, after)
+	for at, change := range drawn.Changed {
+		drawn.Changed[at].Pixels, drawn.Changed[at].Of =
+			howDifferent(filepath.Join(kept, change.File), s.path("img", change.File))
+	}
+	return drawn, run
+}
+
+// keepPictures copies img/ somewhere else, so what a run replaced is still
+// readable after it has been replaced.
+func (s *Server) keepPictures() (string, error) {
+	kept, err := os.MkdirTemp("", "viewbook-kept")
+	if err != nil {
+		return "", err
+	}
+	root := s.path("img")
+	err = filepath.WalkDir(root, func(at string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) && at == root {
+				return nil
+			}
+			return err
+		}
+		name, err := filepath.Rel(root, at)
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return os.MkdirAll(filepath.Join(kept, name), 0o700)
+		}
+		body, err := os.ReadFile(at)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(kept, name), body, 0o600)
+	})
+	return kept, err
+}
+
+// howDifferent is how many pixels of two pictures came out different, and how
+// many there are. Pictures that cannot be held against each other, because one
+// is not an image this can read or they are not the same size, answer -1.
+func howDifferent(was, now string) (int, int) {
+	one, two := pixels(was), pixels(now)
+	if one == nil || two == nil || !one.Bounds().Eq(two.Bounds()) {
+		return -1, 0
+	}
+	box := one.Bounds()
+	changed := 0
+	for y := box.Min.Y; y < box.Max.Y; y++ {
+		for x := box.Min.X; x < box.Max.X; x++ {
+			red, green, blue, _ := one.At(x, y).RGBA()
+			red2, green2, blue2, _ := two.At(x, y).RGBA()
+			if red != red2 || green != green2 || blue != blue2 {
+				changed++
+			}
+		}
+	}
+	return changed, box.Dx() * box.Dy()
+}
+
+func pixels(path string) image.Image {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	drawn, _, err := image.Decode(file)
+	if err != nil {
+		return nil
+	}
+	return drawn
 }
 
 // pictures is every file under img/ by name, each with a fingerprint of what is
@@ -284,7 +385,7 @@ func whatChanged(before, after map[string][32]byte) Drawn {
 		case !had:
 			drawn.Added = append(drawn.Added, name)
 		case was != now:
-			drawn.Changed = append(drawn.Changed, name)
+			drawn.Changed = append(drawn.Changed, Change{File: name})
 		}
 	}
 	for name := range before {
@@ -292,7 +393,7 @@ func whatChanged(before, after map[string][32]byte) Drawn {
 			drawn.Gone = append(drawn.Gone, name)
 		}
 	}
-	sort.Strings(drawn.Changed)
+	sort.Slice(drawn.Changed, func(i, j int) bool { return drawn.Changed[i].File < drawn.Changed[j].File })
 	sort.Strings(drawn.Added)
 	sort.Strings(drawn.Gone)
 	return drawn

@@ -73,10 +73,13 @@ machines as well.
 
 ## What is next
 
-1. **Beyond Android.** The renders are dropped in `img/` by whatever the project uses. Document and
-   prove it with a second, non-Compose project: a web app whose screenshots come from a headless
-   browser, or an iOS app from a simulator. Nothing in the tool should need to change; if it does,
-   that is the bug to fix.
+1. **Beyond Android.** Done for everything but a simulator. Nine books are served, four of them
+   drawn without Compose: proj and papercut photograph terminal output, viewbook photographs its own
+   pages with a headless browser, and phonetix cuts thirty four states out of the one HTML page that
+   is its deliverable, by reading the box of every `[data-uid]` element over the debugging socket.
+   What the tool needed for that was a book saying its own shapes and its own states instead of
+   inheriting one set: a terminal book has one shape, a screen fed synchronously has no loading
+   state, and both used to be reported as gaps. An iOS app from a simulator is still unproven.
 2. **A glance at the code structure.** Wanted: seeing the broad shape of a codebase from the
    viewbook — which files hold what, how big they are, and especially *where the same thing is done
    twice* (two market lists, two sort orders, a helper copied into three files). The signal to aim

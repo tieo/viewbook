@@ -151,12 +151,19 @@ STATES
 done
 
 # A picture this run did not draw is a picture of a screen that is no longer in
-# the book, and it stays behind looking as current as the rest. Sweeping is only
-# honest because this script draws the whole book every time: a run that drew
-# part of it would delete the rest. A run that failed to draw something says so
-# and sweeps nothing, since the file it would remove is the good picture.
+# the book, and it stays behind looking as current as the rest.
+#
+# The sweep is valid only because the list above is complete: this script draws
+# the whole book every time, so what it did not write is what the book no longer
+# has. A run that drew part of it would delete the rest. A run that failed to
+# take a shot sweeps nothing, since the file it would remove is the good picture
+# still on disk, and a run that drew nothing at all sweeps nothing either.
 if [ -s "${work}/missed" ]; then
   echo "$(wc -l < "$work/missed") shots failed, so nothing was swept" >&2
+elif [ ! -s "$work/drawn" ]; then
+  # Nothing drawn and nothing reported as missed is a run that did not happen.
+  # Sweeping against an empty list would take the whole book with it.
+  echo "nothing was drawn, so nothing was swept" >&2
 else
   swept=0
   for held in "$here"/img/*.png; do
